@@ -5,10 +5,38 @@
 
 ## [Unreleased]
 
+### 新增
+
+**Anthropic Messages API 相容端點（M16，Issue #1）**
+
+Claude Code 走的是 Anthropic 格式，本地模型幾乎只講 OpenAI 格式。
+先前的做法是外掛相容代理，現改為在 Gateway 內建轉譯 —— 走代理會讓用量統計
+少一層歸屬，且多一個要維運的元件。
+
+- `POST /v1/messages`，支援 `stream: true`
+- `POST /v1/messages/count_tokens`
+- `GET /v1/models` 帶 `anthropic-version` 標頭時回 Anthropic 格式清單
+- 錯誤改用 `{"type":"error","error":{...}}` 格式，型別依 HTTP 狀態碼對應
+- 驗證同時接受 `x-api-key`（Anthropic 慣例）與 `Authorization: Bearer`
+- 容忍 `ANTHROPIC_BASE_URL` 誤含 `/v1` 造成的 `/v1/v1/messages`
+
+轉譯涵蓋：`system` 頂層參數 ↔ system 訊息、content block ↔ 字串/part 陣列、
+`image` block ↔ `image_url`、`tool_use` ↔ `tool_calls`、`tool_result` ↔ `role: "tool"`、
+`input_schema` ↔ `function.parameters`、`stop_reason` ↔ `finish_reason`，
+以及完整的 Anthropic SSE 事件狀態機（`message_start` → `content_block_start` →
+`content_block_delta`（`text_delta` / `input_json_delta`）→ `content_block_stop` →
+`message_delta` → `message_stop`）。
+
+**兩種協定共用同一條管線與同一份配額。** `/v1/messages` 與 `/v1/chat/completions`
+都走 `gateway.admit()`，驗證、時段、Token 額度、佇列優先權、Failover 與紀錄完全一致，
+沒有任何旁路。
+
+- 測試從 47 項增加到 86 項（新增 23 項轉譯單元測試 + 16 項端對端測試）
+
 ### 待辦
-- Priority Queue 的 LAN 多人壓力測試與安全驗收（M14）
-- Cursor / Claude Code / Codex / DeepSeek 的實機串接驗證（M11）
-- GitHub Actions CI 於實際 PR 上的首次跑通
+- Priority Queue 的 LAN 多人壓力測試與安全驗收（M14，Issue #2）
+- Cursor / Codex / DeepSeek 的實機串接驗證（M11，Issue #1）
+- Claude Code 對接真實本地模型的實機驗證（轉譯層已完成並通過測試）
 
 ---
 

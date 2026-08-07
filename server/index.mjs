@@ -14,7 +14,7 @@ import { paths, ensureRuntimeDirs } from './core/paths.mjs';
 import { loadConfig } from './core/config.mjs';
 import { configureLogger, log } from './core/logger.mjs';
 import { getDb, closeDb, setSetting } from './core/db.mjs';
-import { HttpError, json, openaiError, clientIp } from './core/http.mjs';
+import { HttpError, json, openaiError, anthropicError, clientIp } from './core/http.mjs';
 import { bootstrapAdmin } from './services/users.mjs';
 import { syncCatalog, startHealthLoop, stopHealthLoop } from './services/models.mjs';
 import { queue } from './services/queue.mjs';
@@ -22,6 +22,8 @@ import { purgeExpiredSessions } from './services/session.mjs';
 import { startBackupSchedule, stopBackupSchedule } from './services/backup.mjs';
 import { adminRouter } from './routes/admin.mjs';
 import { openaiRouter } from './routes/openai.mjs';
+import { anthropicRouter, anthropicModelList, requireApiKey } from './routes/anthropic.mjs';
+import { anthropicErrorType } from './services/anthropic-compat.mjs';
 import { serveStatic } from './routes/static.mjs';
 
 export const VERSION = '1.2.0';
@@ -40,6 +42,8 @@ export async function createServer(bootConfig) {
     }
     const pathname = url.pathname;
     const isApiPath = pathname.startsWith('/v1/');
+    // Anthropic 客戶端一律帶 anthropic-version；用它決定錯誤與模型清單的格式
+    const isAnthropicClient = !!req.headers['anthropic-version'] || pathname.includes('/messages');
 
     // 基本安全標頭（Web UI 為本機/LAN 使用，不引用任何外部資源）
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -55,7 +59,8 @@ export async function createServer(bootConfig) {
     if (origin && (allowed.includes('*') || allowed.includes(origin))) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
-      res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, x-api-key');
+      res.setHeader('Access-Control-Allow-Headers',
+        'Authorization, Content-Type, x-api-key, anthropic-version, anthropic-beta, anthropic-dangerous-direct-browser-access');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, PUT, DELETE, OPTIONS');
     }
     if (req.method === 'OPTIONS') return res.writeHead(204).end();
@@ -63,7 +68,13 @@ export async function createServer(bootConfig) {
     const ctx = { config, query: url.searchParams, params: {} };
 
     try {
-      for (const router of [openaiRouter, adminRouter]) {
+      // 同一條 /v1/models 依客戶端型別回不同格式：Anthropic SDK 解不了 OpenAI 的 list 結構
+      if (req.method === 'GET' && pathname === '/v1/models' && req.headers['anthropic-version']) {
+        return json(res, 200, anthropicModelList(requireApiKey(req), config));
+      }
+
+      // Anthropic 路由排在最前面，因為它同時收 /v1/messages 與誤設的 /v1/v1/messages
+      for (const router of [anthropicRouter, openaiRouter, adminRouter]) {
         const hit = router.match(req.method, pathname);
         if (!hit) continue;
         if (hit.methodNotAllowed) throw new HttpError(405, 'method_not_allowed', '不支援的 HTTP 方法');
@@ -90,8 +101,13 @@ export async function createServer(bootConfig) {
       }
 
       if (res.headersSent) { if (!res.writableEnded) res.end(); return; }
-      if (isApiPath) openaiError(res, status, code, message);
-      else json(res, status, { error: { code, message } });
+      if (isApiPath && isAnthropicClient) {
+        anthropicError(res, status, anthropicErrorType(status), message);
+      } else if (isApiPath) {
+        openaiError(res, status, code, message);
+      } else {
+        json(res, status, { error: { code, message } });
+      }
     } finally {
       if (Date.now() - started > 10000) {
         log.debug('慢請求', { path: pathname, ms: Date.now() - started });
@@ -141,7 +157,9 @@ export async function main() {
 
   fs.writeFileSync(paths.pidFile, String(process.pid), 'utf8');
 
-  const localUrl = `http://localhost:${config.server.port}`;
+  // 用實際綁定的 port，而不是設定值 —— 設 0 時才不會印出 http://localhost:0
+  const boundPort = server.address()?.port ?? config.server.port;
+  const localUrl = `http://localhost:${boundPort}`;
   console.log('');
   console.log('  ╔══════════════════════════════════════════════════════╗');
   console.log('  ║   AGI BAR - Local AI Gateway Management System       ║');

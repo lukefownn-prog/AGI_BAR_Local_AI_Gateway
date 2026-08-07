@@ -28,6 +28,11 @@ export function openaiError(res, status, code, message, type = 'invalid_request_
   json(res, status, { error: { message, type, code, param: null } });
 }
 
+/** Anthropic 相容錯誤格式，讓 Claude Code 能正確顯示訊息。 */
+export function anthropicError(res, status, type, message) {
+  json(res, status, { type: 'error', error: { type, message } });
+}
+
 export async function readJsonBody(req, maxBytes = 8 * 1024 * 1024) {
   const chunks = [];
   let size = 0;
@@ -131,6 +136,14 @@ export function sseStart(res, headers = {}) {
 
 export function sseSend(res, data) {
   res.write(`data: ${typeof data === 'string' ? data : JSON.stringify(data)}\n\n`);
+}
+
+/**
+ * 具名事件的 SSE。Anthropic 的串流靠 `event:` 行分辨訊息型別
+ * （message_start / content_block_delta / …），只有 `data:` 客戶端會解不出來。
+ */
+export function sseEvent(res, event, data) {
+  res.write(`event: ${event}\ndata: ${typeof data === 'string' ? data : JSON.stringify(data)}\n\n`);
 }
 
 export function sseDone(res) {

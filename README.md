@@ -20,6 +20,7 @@
 | 優先佇列 | P0 管理員 / P1 高 / P2 一般 / P3 訪客 + anti-starvation |
 | 安全上網 | 受控 Web Search / URL Fetch，預設封鎖所有內網位址 |
 | 完整稽核 | 每次請求的等待、推理、Token、Failover 與上網行為都留存 |
+| 雙協定相容 | 同時支援 OpenAI `/v1/chat/completions` 與 Anthropic `/v1/messages`，共用同一份配額 |
 
 **零 npm 相依。** 全部以 Node.js 內建模組實作（`node:http` + `node:sqlite` + `node:crypto`），
 沒有 `node_modules`、沒有建置流程，解壓即可執行。
@@ -83,7 +84,10 @@ OpenAI 相容端點，然後重新啟動服務：
 
 ## 串接外部工具
 
-任何允許自訂 Base URL 與 API Key 的 OpenAI 相容客戶端都能連接。
+任何允許自訂 Base URL 與 API Key 的 OpenAI 相容客戶端都能連接；
+Claude Code 這類使用 Anthropic Messages API 的工具也能直接連，
+Gateway 內建 `/v1/messages` 轉譯層，**不需要外部代理**。
+
 Cursor、Claude Code、Codex、DeepSeek 備援與自製 App 的逐項設定，見
 **[docs/整合設定.md](docs/整合設定.md)**。
 
@@ -124,8 +128,9 @@ agi-bar/
 npm test
 ```
 
-47 項測試涵蓋佇列優先權與 anti-starvation、時間權限、SSRF 防護，
-以及一整條端對端管線（登入 → 建人員 → 發 Key → 配額 → 路由 → Failover → 紀錄）。
+86 項測試涵蓋佇列優先權與 anti-starvation、時間權限、SSRF 防護、
+Anthropic ↔ OpenAI 轉譯，以及兩條端對端管線
+（登入 → 建人員 → 發 Key → 配額 → 路由 → Failover → 紀錄）。
 
 分支規則、PR 流程與 Release 步驟見 **[docs/開發流程.md](docs/開發流程.md)**。
 
