@@ -5,14 +5,16 @@
   "type": "module",
   "private": true,
   "engines": {
-    "node": ">=22.5.0"
+    "node": ">=24.0.0"
   },
   "main": "server/index.mjs",
   "scripts": {
     "start": "node server/index.mjs",
     "dev": "node --watch server/index.mjs",
-    "test": "node --test tests/",
-    "lint": "node --check-all scripts/lint.mjs && node scripts/lint.mjs",
+    "test": "node --test \"tests/**/*.test.mjs\"",
+    "lint": "node scripts/lint.mjs",
+    "scan": "node scripts/security-scan.mjs",
+    "verify": "npm run lint && npm test && npm run scan && npm run check:portable",
     "build:portable": "node scripts/build-portable.mjs",
     "check:portable": "node scripts/check-portable.mjs",
     "healthcheck": "node scripts/healthcheck.mjs"

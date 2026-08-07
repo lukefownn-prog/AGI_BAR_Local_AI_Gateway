@@ -46,7 +46,7 @@ fs.copyFileSync(path.join(ROOT, 'config/config.example.json'), path.join(STAGE, 
 for (const [dir, note] of [
   ['data', '執行期資料（資料庫、紀錄、備份）會自動產生於此。更新程式時請保留本目錄。'],
   ['models', '把 GGUF 等模型檔放在這裡。模型不隨程式發佈。'],
-  ['runtime', '若主機沒有安裝 Node.js 22.5+，把 node.exe 放在這裡，啟動腳本會優先使用。'],
+  ['runtime', '若主機沒有安裝 Node.js 24+，把 node.exe 放在這裡，啟動腳本會優先使用。'],
 ]) {
   fs.mkdirSync(path.join(STAGE, dir), { recursive: true });
   fs.writeFileSync(path.join(STAGE, dir, 'README.txt'), note + '\n', 'utf8');

@@ -31,7 +31,7 @@
 ### 需求
 
 - Windows 10/11（其他平台可直接 `node server/index.mjs`）
-- Node.js **22.5 以上**（`node:sqlite` 需求），或把 `node.exe` 放進 `runtime/`
+- Node.js **24 LTS 以上**（`node:sqlite` 需免旗標支援），或把 `node.exe` 放進 `runtime/`
 
 ### 啟動
 

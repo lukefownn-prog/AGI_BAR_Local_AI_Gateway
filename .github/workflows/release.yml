@@ -33,7 +33,7 @@ jobs:
       - name: 完整驗證
         run: |
           node scripts/lint.mjs
-          node --test tests/
+          node --test "tests/**/*.test.mjs"
           node scripts/security-scan.mjs
           node scripts/check-portable.mjs
 

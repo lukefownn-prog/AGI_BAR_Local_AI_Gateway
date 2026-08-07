@@ -79,12 +79,14 @@ export class PriorityQueue {
         onAbort: null,
       };
 
+      // 刻意不 unref()：這個 timer 是唯一會讓等待中的請求脫困的機制，
+      // unref 之後在沒有其他 handle 的情境（例如測試）會永遠不觸發。
+      // 生命週期上限就是 queueTimeoutMs，且離開佇列時一定會被 clearTimeout。
       item.timer = setTimeout(() => {
         this.#remove(item);
         this.stats.timedOut++;
         reject(new HttpError(504, 'queue_timeout', '排隊等待逾時，請稍後再試'));
       }, this.queueTimeoutMs);
-      item.timer.unref?.();
 
       if (signal) {
         item.onAbort = () => {

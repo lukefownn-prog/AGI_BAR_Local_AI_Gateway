@@ -37,10 +37,10 @@ if exist "runtime\node.exe" (
     echo   [1/3] 使用系統已安裝的 Node.js
 )
 
-rem ---- 2. 版本檢查（node:sqlite 需 Node 22.5 以上）----
+rem ---- 2. 版本檢查（node:sqlite 免旗標需 Node 23.4+，實務上要求 24 LTS）----
 for /f "tokens=1 delims=." %%v in ('"%NODE_EXE%" -p "process.versions.node"') do set "NODE_MAJOR=%%v"
-if !NODE_MAJOR! LSS 22 (
-    echo   [錯誤] Node.js 版本過舊（偵測到 v!NODE_MAJOR!），需要 v22.5 以上。
+if !NODE_MAJOR! LSS 24 (
+    echo   [錯誤] Node.js 版本過舊（偵測到 v!NODE_MAJOR!），需要 v24 以上。
     echo.
     pause
     exit /b 1

@@ -23,7 +23,7 @@ jobs:
       matrix:
         # Windows 是正式部署環境；Linux 跑得快，用來早期發現問題
         os: [windows-latest, ubuntu-latest]
-        node: ['22.x', '24.x']
+        node: ['24.x', '25.x']
 
     steps:
       - uses: actions/checkout@v4
