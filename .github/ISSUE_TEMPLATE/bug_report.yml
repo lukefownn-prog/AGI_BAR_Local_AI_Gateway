@@ -1,0 +1,76 @@
+name: Bug 回報
+description: 回報 AGI BAR 的異常行為
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠ **請勿貼上真實的 API Key、管理員密碼或內網位址。**
+        需要提供 Key 時，只貼識別前綴（例如 `agi-bar-a1b2c3…`）。
+
+  - type: textarea
+    id: what
+    attributes:
+      label: 發生了什麼
+      description: 預期行為 vs 實際行為
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 重現步驟
+      placeholder: |
+        1. 在管理台建立人員 …
+        2. 用該 Key 呼叫 /v1/chat/completions …
+        3. 收到 …
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 影響範圍
+      options:
+        - Web 管理台
+        - 網頁聊天
+        - OpenAI 相容 API
+        - 配額 / 時間權限
+        - 模型路由 / Failover
+        - Priority Queue
+        - 受控上網
+        - 啟動 / 部署腳本
+        - 其他
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: AGI BAR 版本
+      placeholder: v1.2.0
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node 版本
+      placeholder: v24.18.1（執行 `node -v`）
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相關紀錄
+      description: 來自 `data/logs/agibar-YYYY-MM-DD.log`。**貼上前請先移除機密。**
+      render: text
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 確認
+      options:
+        - label: 我已確認貼上的內容不含 API Key、密碼或內網位址
+          required: true

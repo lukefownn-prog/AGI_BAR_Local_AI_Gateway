@@ -1,0 +1,80 @@
+# AGI BAR CI（規畫書 16.2）
+# Pull Request 自動執行：程式語法檢查 → 單元測試 → API 測試 → 安全掃描 → Portable 結構檢查
+# main 通過後才允許建立 Release。敏感設定不放入 Actions Artifact。
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: 驗證 (Node ${{ matrix.node }} / ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows 是正式部署環境；Linux 跑得快，用來早期發現問題
+        os: [windows-latest, ubuntu-latest]
+        node: ['22.x', '24.x']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # 零 npm 相依，不需要 npm ci
+      - name: 確認零相依
+        shell: bash
+        run: |
+          if [ -f package-lock.json ]; then
+            echo "::warning::專案應維持零 npm 相依，不需要 package-lock.json"
+          fi
+          node -e "const p=require('./package.json'); if(Object.keys(p.dependencies||{}).length){console.error('不應有 dependencies');process.exit(1)}"
+
+      - name: 1. 程式語法檢查
+        run: node scripts/lint.mjs
+
+      - name: 2. 單元測試
+        run: node --test tests/queue.test.mjs tests/quota.test.mjs tests/websafe.test.mjs
+
+      - name: 3. API 端對端測試
+        run: node --test tests/gateway.e2e.test.mjs
+
+      - name: 4. 安全掃描
+        run: node scripts/security-scan.mjs
+
+      - name: 5. Portable 結構檢查
+        run: node scripts/check-portable.mjs
+
+  build:
+    name: 建置 Portable ZIP
+    runs-on: windows-latest
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+
+      - name: 建置
+        run: node scripts/build-portable.mjs
+
+      # 只上傳程式 ZIP。正式部署所需的敏感設定不放入 Artifact（規畫書 16.2）
+      - name: 上傳建置產物
+        uses: actions/upload-artifact@v4
+        with:
+          name: agi-bar-portable
+          path: |
+            dist/*.zip
+            dist/*.sha256
+          retention-days: 14

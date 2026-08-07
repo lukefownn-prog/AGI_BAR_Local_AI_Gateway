@@ -1,0 +1,103 @@
+# ==========================================================
+# AGI BAR - .gitignore
+# 規畫書 16.1「絕對不可上傳的資料」
+# ==========================================================
+
+# --- 機敏設定 ---
+.env
+.env.*
+!.env.example
+config/config.json
+config/*.local.json
+config/secrets*.json
+**/jwt.secret
+**/session.secret
+
+# --- 資料庫與執行期資料 ---
+data/
+!data/.gitkeep
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+users.db
+usage.db
+requests.db
+
+# --- 紀錄 ---
+logs/
+*.log
+request-logs/
+usage-logs/
+
+# --- 模型檔（大型二進位，走 GitHub Release / 本機下載）---
+models/
+!models/.gitkeep
+!models/models.example.json
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.onnx
+
+# --- 內嵌 Runtime（llama.cpp / node 等，隨 Release ZIP 發佈）---
+runtime/
+!runtime/.gitkeep
+!runtime/README.md
+
+# --- 憑證 / 金鑰 ---
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+licenses/
+certs/
+
+# --- 備份與匯出 ---
+backups/
+exports/
+*.bak
+*.zip
+!docs/**/*.zip
+
+# --- 建置產出 ---
+dist/
+build/
+out/
+AGI-BAR-v*/
+AGI-BAR-v*.zip
+*.sha256
+
+# --- 相依套件 ---
+node_modules/
+package-lock.json
+npm-debug.log*
+
+# --- 內部名單 / 人員資料 ---
+internal/
+private/
+*-員工*.csv
+*-人員*.csv
+lan-hosts.txt
+inventory.txt
+
+# --- 作業系統 / 編輯器 / AI 工具本機設定 ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+!.vscode/extensions.json
+.idea/
+.claude/
+.cursor/
+.codeium/
+*.swp
+~$*
+
+# --- 暫存 ---
+tmp/
+temp/
+.cache/

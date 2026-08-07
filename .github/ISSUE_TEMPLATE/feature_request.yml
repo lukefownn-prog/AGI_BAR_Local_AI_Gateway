@@ -1,0 +1,55 @@
+name: 功能需求
+description: 提出新功能或改善
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 要解決什麼問題
+      description: 先描述現況的困擾，解法請放在下一欄
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建議做法
+    validations:
+      required: true
+
+  - type: input
+    id: spec
+    attributes:
+      label: 對應規畫書章節
+      placeholder: 例如「7. 模型優先順序與自動切換」
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 影響範圍
+      options:
+        - Web 管理台
+        - 網頁聊天
+        - OpenAI 相容 API
+        - 配額 / 時間權限
+        - 模型路由 / Failover
+        - Priority Queue
+        - 受控上網
+        - 部署 / CI / Release
+        - 文件
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: 設計限制確認
+      options:
+        - label: 這個做法不需要新增 npm 相依（Portable 零安裝原則）
+        - label: 這個做法不會把內部 Prompt 或程式碼送往未授權的外部服務
+        - label: 需要變更資料庫結構（若勾選，請在下方說明遷移方式）
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 補充說明

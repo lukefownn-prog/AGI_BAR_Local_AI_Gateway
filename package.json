@@ -1,0 +1,23 @@
+{
+  "name": "agi-bar",
+  "version": "1.2.0",
+  "description": "AGI BAR - Local AI Gateway Management System",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "main": "server/index.mjs",
+  "scripts": {
+    "start": "node server/index.mjs",
+    "dev": "node --watch server/index.mjs",
+    "test": "node --test tests/",
+    "lint": "node --check-all scripts/lint.mjs && node scripts/lint.mjs",
+    "build:portable": "node scripts/build-portable.mjs",
+    "check:portable": "node scripts/check-portable.mjs",
+    "healthcheck": "node scripts/healthcheck.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "license": "SEE LICENSE IN LICENSE"
+}

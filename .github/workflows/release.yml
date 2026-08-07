@@ -1,0 +1,72 @@
+# Release 發布（規畫書 16.3）
+# main 穩定 → 建立版本號 → 產生 CHANGELOG → 建立 GitHub Release
+# → 建置 ZIP → 計算 SHA-256 → 上傳 Release Asset
+
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '版本 Tag（例如 v1.2.0）'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: 建置並發布
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+
+      # Release 前再跑一次完整驗證，避免直接打 tag 繞過 CI
+      - name: 完整驗證
+        run: |
+          node scripts/lint.mjs
+          node --test tests/
+          node scripts/security-scan.mjs
+          node scripts/check-portable.mjs
+
+      - name: 確認 Tag 與 package.json 版本一致
+        shell: bash
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          PKG="v$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::Tag ($TAG) 與 package.json 版本 ($PKG) 不一致"
+            exit 1
+          fi
+
+      - name: 建置 Portable ZIP
+        run: node scripts/build-portable.mjs
+
+      - name: 建立 GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          gh release create "$TAG" \
+            dist/*.zip dist/*.sha256 \
+            --title "$TAG" \
+            --notes "見 [CHANGELOG.md](CHANGELOG.md)。
+
+          ## 部署方式
+
+          1. 下載 ZIP 並核對 SHA-256
+          2. 解壓到固定路徑
+          3. **保留既有的 \`config/\` 與 \`data/\` 目錄**
+          4. 執行 \`啟動 AGI BAR.cmd\`
+          5. 執行 \`node scripts/healthcheck.mjs\` 確認健康
+
+          詳見 [docs/部署.md](docs/部署.md)。"

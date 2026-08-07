@@ -1,0 +1,194 @@
+{
+  "$schema": "./config.schema.json",
+  "_comment": "複製本檔為 config/config.json 後再修改。config.json 已列入 .gitignore，不會上傳 GitHub。",
+
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8787,
+    "publicBaseUrl": "",
+    "openBrowserOnStart": true,
+    "trustProxy": false,
+    "requestTimeoutMs": 300000,
+    "maxBodyBytes": 8388608
+  },
+
+  "security": {
+    "sessionSecret": "CHANGE-ME-啟動時若為預設值會自動產生隨機祕鑰並寫入 data/session.secret",
+    "sessionTtlHours": 12,
+    "adminLoginRateLimitPerMin": 10,
+    "apiKeyPrefix": "agi-bar-",
+    "forceHttpsCookies": false,
+    "allowedOrigins": []
+  },
+
+  "admin": {
+    "_comment": "首次啟動用的初始管理員。登入後請立即於「設定」頁修改密碼；密碼僅以 scrypt 雜湊保存於資料庫。",
+    "username": "admin",
+    "initialPassword": "agibar-admin"
+  },
+
+  "limits": {
+    "maxUsers": 50,
+    "defaultUserLimits": {
+      "status": "active",
+      "tokensPerRequest": 8192,
+      "tokensPerHour": 100000,
+      "tokensPerDay": 500000,
+      "tokensPerMonth": 5000000,
+      "rpm": 20,
+      "concurrent": 2,
+      "priority": "normal",
+      "internetAllowed": false,
+      "validFrom": null,
+      "validUntil": null,
+      "dailyWindowStart": "08:00",
+      "dailyWindowEnd": "22:00",
+      "weekdays": [1, 2, 3, 4, 5],
+      "overQuotaPolicy": "hard"
+    }
+  },
+
+  "queue": {
+    "maxGlobalConcurrent": 4,
+    "maxQueueLength": 200,
+    "queueTimeoutMs": 120000,
+    "antiStarvation": {
+      "enabled": true,
+      "boostEveryMs": 10000,
+      "maxBoost": 3
+    },
+    "priorityWeights": {
+      "admin": 0,
+      "high": 1,
+      "normal": 2,
+      "guest": 3
+    }
+  },
+
+  "models": {
+    "healthCheckIntervalMs": 15000,
+    "healthCheckTimeoutMs": 5000,
+    "unhealthyAfterFailures": 3,
+    "queueTooLongThreshold": 8,
+    "catalog": [
+      {
+        "id": "local-primary",
+        "displayName": "本地主力模型",
+        "provider": "openai-compatible",
+        "endpoint": "http://127.0.0.1:8080/v1",
+        "model": "qwen2.5-7b-instruct",
+        "apiKeyEnv": "",
+        "enabled": true,
+        "isLocal": true,
+        "capabilities": ["chat", "stream"],
+        "contextWindow": 32768,
+        "vramMb": 8000
+      },
+      {
+        "id": "local-secondary",
+        "displayName": "本地備援模型",
+        "provider": "openai-compatible",
+        "endpoint": "http://127.0.0.1:8081/v1",
+        "model": "llama-3.1-8b-instruct",
+        "apiKeyEnv": "",
+        "enabled": true,
+        "isLocal": true,
+        "capabilities": ["chat", "stream"],
+        "contextWindow": 16384,
+        "vramMb": 6000
+      },
+      {
+        "id": "local-small",
+        "displayName": "本地輕量模型",
+        "provider": "openai-compatible",
+        "endpoint": "http://127.0.0.1:8082/v1",
+        "model": "qwen2.5-3b-instruct",
+        "apiKeyEnv": "",
+        "enabled": false,
+        "isLocal": true,
+        "capabilities": ["chat", "stream"],
+        "contextWindow": 8192,
+        "vramMb": 3000
+      },
+      {
+        "id": "cloud-deepseek",
+        "displayName": "DeepSeek 雲端備援（預設停用）",
+        "provider": "openai-compatible",
+        "endpoint": "https://api.deepseek.com/v1",
+        "model": "deepseek-chat",
+        "apiKeyEnv": "DEEPSEEK_API_KEY",
+        "enabled": false,
+        "isLocal": false,
+        "requiresExplicitConsent": true,
+        "capabilities": ["chat", "stream"],
+        "contextWindow": 65536,
+        "vramMb": 0
+      }
+    ],
+    "defaultRoute": ["local-primary", "local-secondary", "local-small"],
+    "publicAliases": {
+      "agi-bar-default": "依人員的 Model Route 自動選擇",
+      "agi-bar-fast": "偏好低延遲的路由",
+      "agi-bar-long": "偏好長上下文的路由"
+    }
+  },
+
+  "internet": {
+    "enabled": false,
+    "searchProvider": "none",
+    "searchEndpoint": "",
+    "searchApiKeyEnv": "",
+    "maxResults": 5,
+    "fetch": {
+      "maxBytes": 2097152,
+      "timeoutMs": 10000,
+      "maxRedirects": 3,
+      "allowedSchemes": ["http", "https"],
+      "allowedContentTypes": [
+        "text/html",
+        "text/plain",
+        "text/markdown",
+        "application/json",
+        "application/xml",
+        "text/xml"
+      ],
+      "blockPrivateNetworks": true,
+      "blockedCidrs": [
+        "127.0.0.0/8",
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "169.254.0.0/16",
+        "0.0.0.0/8",
+        "100.64.0.0/10",
+        "::1/128",
+        "fc00::/7",
+        "fe80::/10"
+      ],
+      "domainAllowlist": [],
+      "domainBlocklist": [
+        "localhost",
+        "*.local",
+        "*.internal",
+        "*.lan"
+      ]
+    }
+  },
+
+  "logging": {
+    "level": "info",
+    "toFile": true,
+    "dir": "data/logs",
+    "retentionDays": 30,
+    "logPrompts": false,
+    "logPromptHashOnly": true
+  },
+
+  "backup": {
+    "enabled": true,
+    "dir": "data/backups",
+    "onStartup": true,
+    "intervalHours": 24,
+    "keepCopies": 14
+  }
+}

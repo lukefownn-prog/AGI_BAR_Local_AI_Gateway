@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AGI BAR 管理台</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <b>AGI BAR</b>
+        <span>Local AI Gateway</span>
+      </div>
+      <nav id="nav">
+        <a href="#/dashboard" data-page="dashboard"><i class="ico">▦</i><span class="txt">儀表板</span></a>
+        <a href="#/users"     data-page="users"><i class="ico">▤</i><span class="txt">人員</span></a>
+        <a href="#/keys"      data-page="keys"><i class="ico">⚿</i><span class="txt">API</span></a>
+        <a href="#/models"    data-page="models"><i class="ico">◆</i><span class="txt">AI 模型</span></a>
+        <a href="#/internet"  data-page="internet"><i class="ico">◈</i><span class="txt">網路</span></a>
+        <a href="#/logs"      data-page="logs"><i class="ico">☰</i><span class="txt">紀錄</span></a>
+        <a href="#/settings"  data-page="settings"><i class="ico">⚙</i><span class="txt">設定</span></a>
+      </nav>
+      <div class="foot">
+        <div id="sideVersion">v1.2.0</div>
+        <a href="/chat.html" target="_blank">網頁聊天 ↗</a>
+      </div>
+    </aside>
+
+    <div class="main">
+      <div class="topbar">
+        <h2 id="pageTitle">儀表板</h2>
+        <div class="btn-row">
+          <span class="who" id="whoami"></span>
+          <button class="sm" id="logoutBtn">登出</button>
+        </div>
+      </div>
+      <div class="content" id="content"></div>
+    </div>
+  </div>
+
+  <div id="modalHost"></div>
+  <script type="module" src="/assets/app.js"></script>
+</body>
+</html>
