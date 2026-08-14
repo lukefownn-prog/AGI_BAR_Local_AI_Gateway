@@ -93,6 +93,11 @@ class Client {
 
   async login(username, password) {
     const r = await this.admin('/api/auth/login', { method: 'POST', body: { username, password } });
+    if (r.status === 404) {
+      throw new Error('管理 API 回 404。管理台預設限制為本機存取，'
+        + '從其他機器連不到。請改在 AI 主機上執行本腳本，'
+        + '或把這台的 IP 加入 config 的 security.adminAllowedCidrs。');
+    }
     if (r.status !== 200) {
       throw new Error(`管理員登入失敗（HTTP ${r.status}）：${r.body?.error?.message ?? ''}`);
     }

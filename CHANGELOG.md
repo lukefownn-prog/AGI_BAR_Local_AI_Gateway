@@ -66,10 +66,26 @@ Claude Code 走的是 Anthropic 格式，本地模型幾乎只講 OpenAI 格式�
   動輒上萬 token；8192 會讓小型測試全過、實際使用卻大量 413。
   已改為 32768，與範例主力模型的 `contextWindow` 對齊。
 
+**管理介面存取隔離（M17）**
+
+預設只有 AI 主機本機能開管理台；區網人員只看得到 `/v1` 與網頁聊天。
+
+- `/app.html`、`/api/*`、管理台專用的 JS 對區網一律回 **404**
+  （403 等於承認「這裡有東西」，404 讓管理台看起來不存在）
+- 區網打根路徑導向 `/chat.html`，而不是丟一個死路
+- `/api/health` 維持開放供監控與部署腳本使用
+- 新增 `security.adminAccess`（`loopback` / `lan`）與 `security.adminAllowedCidrs`
+
+判定依據是 **TCP 連線的對端位址**，不是 `X-Forwarded-For` ——
+後者是請求標頭，任何人都能自填，拿來做存取控制等於沒有控制。
+測試中有一項專門確認偽造 `X-Forwarded-For` 不影響授權判定。
+
+啟動橫幅改為分別列出「管理介面（僅限本機）」與「給人員的位址」。
+
 ### 修正
 - `config.example.json` 的 `limits.defaultUserLimits.tokensPerRequest`：8192 → 32768
 
-- 測試從 86 項增加到 125 項
+- 測試從 86 項增加到 140 項
 
 ### 待辦
 - M11 各客戶端的實機點擊驗證（API 層面已全數通過，Issue #1）

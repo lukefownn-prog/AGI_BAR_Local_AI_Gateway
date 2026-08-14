@@ -46,11 +46,15 @@ Windows 管理員請直接雙擊 **`啟動 AGI BAR.cmd`**，腳本會檢查 Node
 首次啟動會顯示初始管理員帳密（預設 `admin` / `agibar-admin`），
 **請登入後立即於「設定」頁修改密碼。**
 
-| 用途 | 位址 |
-|---|---|
-| Web 管理介面 | `http://<AI主機IP>:8787` |
-| 網頁聊天 | `http://<AI主機IP>:8787/chat.html` |
-| API Base URL | `http://<AI主機IP>:8787/v1` |
+| 用途 | 位址 | 誰能存取 |
+|---|---|---|
+| Web 管理介面 | `http://localhost:8787` | **僅 AI 主機本機** |
+| 網頁聊天 | `http://<AI主機IP>:8787/chat.html` | 區網人員 |
+| API Base URL | `http://<AI主機IP>:8787/v1` | 區網人員 |
+
+管理台預設限制為本機存取 —— 區網人員打根路徑會被導向聊天頁，
+`/app.html` 與 `/api/*` 一律回 404，看起來就像不存在。
+要開放請改 `security.adminAccess`，詳見 [docs/安全須知.md](docs/安全須知.md)。
 
 ---
 

@@ -18,7 +18,12 @@
     "adminLoginRateLimitPerMin": 10,
     "apiKeyPrefix": "agi-bar-",
     "forceHttpsCookies": false,
-    "allowedOrigins": []
+    "allowedOrigins": [],
+
+    "_adminAccess_comment": "管理台（/、/app.html、/api/*）的可存取來源。loopback = 只有 AI 主機本機可用，區網人員連不到也看不到（回 404）；lan = 同網段皆可存取。人員要用的 /v1 與網頁聊天 /chat.html 不受此限制。",
+    "adminAccess": "loopback",
+    "_adminAllowedCidrs_comment": "adminAccess 為 loopback 時，額外放行的來源網段，例如管理員自己的電腦 [\"192.168.1.50/32\"]。",
+    "adminAllowedCidrs": []
   },
 
   "admin": {

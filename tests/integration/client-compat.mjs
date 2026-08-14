@@ -110,6 +110,10 @@ async function provisionProbeUser(base, cookieRef, { adminUser, adminPass }) {
   const login = await adminFetch(base, cookieRef, '/api/auth/login', {
     method: 'POST', body: { username: adminUser, password: adminPass },
   });
+  if (login.status === 404) {
+    throw new Error('管理 API 回 404。管理台預設限制為本機存取，從其他機器連不到。'
+      + '請改在 AI 主機上執行，或改用 --key 直接指定既有的 API Key（探針本身不需要管理權限）。');
+  }
   if (login.status !== 200) {
     throw new Error(`管理員登入失敗（HTTP ${login.status}）：${login.body?.error?.message ?? ''}`);
   }

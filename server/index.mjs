@@ -8,6 +8,7 @@
  */
 import http from 'node:http';
 import fs from 'node:fs';
+import os from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 
@@ -26,6 +27,7 @@ import { openaiRouter } from './routes/openai.mjs';
 import { anthropicRouter, anthropicModelList, requireApiKey } from './routes/anthropic.mjs';
 import { anthropicErrorType } from './services/anthropic-compat.mjs';
 import { serveStatic } from './routes/static.mjs';
+import { isAdminSurface, isAdminAsset, canAccessAdmin, normalizeIp } from './services/access.mjs';
 
 export const VERSION = '1.2.0';
 
@@ -76,6 +78,24 @@ export async function createServer(bootConfig) {
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, PUT, DELETE, OPTIONS');
     }
     if (req.method === 'OPTIONS') return res.writeHead(204).end();
+
+    // 管理介面的來源隔離。必須在路由之前，且只看 TCP 對端位址 ——
+    // 用 X-Forwarded-For 這類標頭做授權等於沒有授權（見 services/access.mjs）。
+    if (isAdminSurface(pathname) || isAdminAsset(pathname)) {
+      if (!canAccessAdmin(req.socket?.remoteAddress, config.security)) {
+        log.warn('拒絕非本機存取管理介面', {
+          path: pathname, ip: normalizeIp(req.socket?.remoteAddress),
+        });
+        // 區網人員打根路徑時導向聊天頁，而不是丟一個死路
+        if (pathname === '/' || pathname === '/index.html') {
+          res.writeHead(302, { Location: '/chat.html' });
+          return res.end();
+        }
+        // 其餘一律 404：403 等於承認「這裡有東西」，404 讓管理台看起來不存在
+        if (isApiPath) return openaiError(res, 404, 'unknown_endpoint', '不支援的 API 路徑');
+        return res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Not Found');
+      }
+    }
 
     const ctx = { config, query: url.searchParams, params: {} };
 
@@ -131,6 +151,17 @@ export async function createServer(bootConfig) {
   server.headersTimeout = 60000;
   server.keepAliveTimeout = 65000;
   return server;
+}
+
+/** 本機的對外 IPv4 位址，用來告訴管理員該把哪個網址給人員。 */
+function lanAddresses() {
+  const out = [];
+  for (const list of Object.values(os.networkInterfaces())) {
+    for (const ni of list ?? []) {
+      if (ni.family === 'IPv4' && !ni.internal) out.push(ni.address);
+    }
+  }
+  return out;
 }
 
 function openBrowser(url) {
@@ -215,9 +246,22 @@ export async function main() {
   console.log('  ║   AGI BAR - Local AI Gateway Management System       ║');
   console.log('  ╚══════════════════════════════════════════════════════╝');
   console.log('');
-  console.log(`   Web 管理介面 : ${localUrl}`);
-  console.log(`   API Base URL : ${localUrl}/v1`);
+  const adminLoopbackOnly = (config.security?.adminAccess ?? 'loopback') !== 'lan';
+  const lanIps = lanAddresses();
+  const lanBase = lanIps.length ? `http://${lanIps[0]}:${boundPort}` : null;
+
+  console.log(`   Web 管理介面 : ${localUrl}${adminLoopbackOnly ? '   （僅限本機）' : ''}`);
   console.log(`   資料庫       : ${paths.db}`);
+  console.log('');
+  console.log('   給人員的位址：');
+  console.log(`     API Base URL : ${lanBase ? lanBase + '/v1' : localUrl + '/v1'}`);
+  console.log(`     網頁聊天     : ${lanBase ? lanBase + '/chat.html' : localUrl + '/chat.html'}`);
+  if (adminLoopbackOnly) {
+    console.log('');
+    console.log('   管理台已限制為本機存取：區網人員連 / 會被導向聊天頁，');
+    console.log('   /app.html 與 /api/* 一律回 404。要開放請改 config 的');
+    console.log('   security.adminAccess 或 security.adminAllowedCidrs。');
+  }
   if (admin) {
     console.log('');
     console.log(`   初始管理員   : ${config.admin.username} / ${config.admin.initialPassword}`);
