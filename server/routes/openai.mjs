@@ -77,6 +77,8 @@ openaiRouter.post('/v1/chat/completions', async (req, res, ctx) => {
 
   const admission = await gw.admit({ auth, config: ctx.config, body, signal: controller.signal });
   const startedAt = Date.now();
+  // 讓客戶端能與 request_logs 對帳（壓力測試與客訴追查都需要）
+  res.setHeader('X-Request-Id', admission.requestId);
   let served = null;
   let statusCode = 200;
   let errorCode = '';

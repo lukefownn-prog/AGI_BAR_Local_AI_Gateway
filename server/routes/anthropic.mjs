@@ -67,6 +67,7 @@ addBoth('POST', '/v1/messages', async (req, res, ctx) => {
   const admission = await gw.admit({ auth, config: ctx.config, body: openaiBody, signal: controller.signal });
   const messageId = newMessageId();
   const startedAt = Date.now();
+  res.setHeader('X-Request-Id', admission.requestId);
 
   let served = null;
   let statusCode = 200;

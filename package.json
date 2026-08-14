@@ -17,7 +17,9 @@
     "verify": "npm run lint && npm test && npm run scan && npm run check:portable",
     "build:portable": "node scripts/build-portable.mjs",
     "check:portable": "node scripts/check-portable.mjs",
-    "healthcheck": "node scripts/healthcheck.mjs"
+    "healthcheck": "node scripts/healthcheck.mjs",
+    "loadtest": "node tests/load/loadtest.mjs",
+    "loadtest:self": "node tests/load/loadtest.mjs --self-test"
   },
   "dependencies": {},
   "devDependencies": {},

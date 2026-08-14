@@ -128,9 +128,18 @@ agi-bar/
 npm test
 ```
 
-86 項測試涵蓋佇列優先權與 anti-starvation、時間權限、SSRF 防護、
+106 項測試涵蓋佇列優先權與 anti-starvation、時間權限、SSRF 防護、
 Anthropic ↔ OpenAI 轉譯，以及兩條端對端管線
 （登入 → 建人員 → 發 Key → 配額 → 路由 → Failover → 紀錄）。
+
+壓力測試與上線驗收：
+
+```bash
+npm run loadtest:self                      # 驗證腳本本身（不需 GPU）
+npm run loadtest -- --url http://<IP>:8787 --admin-pass "…" --users 10
+```
+
+說明見 **[tests/load/README.md](tests/load/README.md)**。
 
 分支規則、PR 流程與 Release 步驟見 **[docs/開發流程.md](docs/開發流程.md)**。
 

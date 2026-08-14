@@ -33,8 +33,26 @@ Claude Code 走的是 Anthropic 格式，本地模型幾乎只講 OpenAI 格式�
 
 - 測試從 47 項增加到 86 項（新增 23 項轉譯單元測試 + 16 項端對端測試）
 
+**壓力測試與驗收腳本（M14，Issue #2）**
+
+`tests/load/loadtest.mjs`，四個情境：
+
+- `steady` — 封閉迴圈，N 人持續加壓；驗證佇列排隊、優先權排序與 anti-starvation
+- `burst` — 開放迴圈灌爆佇列；驗證過載時乾淨回 429/503/504 而非崩潰
+- `longrun` — 單筆長回應；驗證不被 `requestTimeoutMs` 切斷
+- `quota` — 驗證 RPM、單次上限、每日額度真的擋得住，事後自動還原
+
+驗收判定分致命與觀察兩級。效能類（p50/p95）刻意不列為致命 ——
+換一台機器數字就不同，不該讓「這台比較慢」變成驗收失敗。
+
+- 新增 `X-Request-Id` 回應標頭。客戶端得以與 `request_logs` 逐筆對帳，
+  這是「無請求遺失」唯一可信的驗證方式，客訴追查也用得上。
+- `--self-test` 模式內建 Gateway 與假模型農場，不需 GPU。
+  CI 每次都會跑一輪迷你壓測，避免這支平常不執行的腳本在兩次驗收之間爛掉。
+- 測試人員一律以 `loadtest-` 開頭並自動清除，中途 Ctrl+C 也會清。
+
 ### 待辦
-- Priority Queue 的 LAN 多人壓力測試與安全驗收（M14，Issue #2）
+- M14 對真實 GPU 主機與 LAN 多機的實機驗收（腳本已完成，Issue #2）
 - Cursor / Codex / DeepSeek 的實機串接驗證（M11，Issue #1）
 - Claude Code 對接真實本地模型的實機驗證（轉譯層已完成並通過測試）
 
