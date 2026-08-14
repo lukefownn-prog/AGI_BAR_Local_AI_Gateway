@@ -8,6 +8,7 @@
  */
 import http from 'node:http';
 import fs from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 
 import { paths, ensureRuntimeDirs } from './core/paths.mjs';
@@ -27,6 +28,16 @@ import { anthropicErrorType } from './services/anthropic-compat.mjs';
 import { serveStatic } from './routes/static.mjs';
 
 export const VERSION = '1.2.0';
+
+/**
+ * 本次執行的唯一識別。
+ *
+ * 用途是啟動後的自我檢查：確認「使用者打開那個網址時，回應的真的是這個行程」。
+ * 在 Windows 上，另一個綁 `::` 的服務可以和我們綁 `0.0.0.0` 的 socket 並存，
+ * 而瀏覽器的 localhost 會優先走 IPv6 —— 結果就是 AGI BAR 明明在跑，
+ * 打開網頁卻是別的程式在回應。沒有這個檢查，那種狀況極難察覺。
+ */
+const INSTANCE_ID = randomUUID();
 
 export async function createServer(bootConfig) {
   const server = http.createServer(async (req, res) => {
@@ -48,6 +59,7 @@ export async function createServer(bootConfig) {
     // 基本安全標頭（Web UI 為本機/LAN 使用，不引用任何外部資源）
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-AGI-BAR-Instance', INSTANCE_ID);
     if (!isApiPath) {
       res.setHeader('Content-Security-Policy',
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'");
@@ -131,6 +143,44 @@ function openBrowser(url) {
   }
 }
 
+/** 這個埠現在能不能綁？用來在啟動前就給出清楚的訊息，而不是丟出 EADDRINUSE。 */
+export function probePort(port, host = '0.0.0.0') {
+  return new Promise((resolve) => {
+    const probe = http.createServer();
+    probe.once('error', (err) => resolve(err.code || 'EADDRINUSE'));
+    probe.once('listening', () => probe.close(() => resolve(null)));
+    probe.listen(port, host);
+  });
+}
+
+/** 從 start 往上找第一個可用的埠，供錯誤訊息給出可行建議。 */
+async function findFreePort(start, host = '0.0.0.0', tries = 20) {
+  for (let p = start; p < start + tries; p++) {
+    if (await probePort(p, host) === null) return p;
+  }
+  return null;
+}
+
+/**
+ * 確認使用者實際會連到的位址，回應的是本行程。
+ * 回傳 null 表示正常，否則回傳問題描述。
+ */
+async function verifyReachable(port) {
+  for (const host of ['localhost', '127.0.0.1']) {
+    let res;
+    try {
+      res = await fetch(`http://${host}:${port}/api/health`, { signal: AbortSignal.timeout(4000) });
+    } catch (err) {
+      return { host, problem: 'unreachable', detail: err.message };
+    }
+    const id = res.headers.get('x-agi-bar-instance');
+    if (id !== INSTANCE_ID) {
+      return { host, problem: id ? 'other-agibar' : 'foreign-service', detail: `HTTP ${res.status}` };
+    }
+  }
+  return null;
+}
+
 export async function main() {
   ensureRuntimeDirs();
   const config = loadConfig();
@@ -177,7 +227,41 @@ export async function main() {
   console.log('   按 Ctrl+C 結束服務。');
   console.log('');
 
-  if (config.server.openBrowserOnStart) openBrowser(localUrl);
+  // 綁定成功不代表使用者連得到我們。Windows 上另一個綁 `::` 的服務可以與
+  // 我們綁 `0.0.0.0` 的 socket 並存，而 localhost 優先走 IPv6 —— 服務明明在跑，
+  // 打開網頁卻是別的程式在回應。這裡先確認一次，有問題就講清楚。
+  const conflict = await verifyReachable(boundPort);
+  if (conflict) {
+    const what = {
+      'foreign-service': '另一個程式',
+      'other-agibar': '另一個 AGI BAR 實例',
+      unreachable: '無法連線',
+    }[conflict.problem];
+
+    console.log('  ┌──────────────────────────────────────────────────────────┐');
+    console.log('  │  ⚠  警告：這個位址上回應的不是本服務                     │');
+    console.log('  └──────────────────────────────────────────────────────────┘');
+    console.log('');
+    console.log(`   用 http://${conflict.host}:${boundPort} 連線時，回應的是${what}（${conflict.detail}）。`);
+    console.log('   AGI BAR 本身有在執行，但你在瀏覽器看到的畫面不是它。');
+    console.log('');
+    console.log(`   常見原因：另一個服務綁在 IPv6（::）的同一個連接埠上，`);
+    console.log('   而 localhost 會優先解析成 IPv6，因此被它接走。');
+    console.log('');
+    console.log('   查出是誰（PowerShell）：');
+    console.log(`     Get-NetTCPConnection -LocalPort ${boundPort} -State Listen |`);
+    console.log('       ForEach-Object { Get-Process -Id $_.OwningProcess | Select Id,ProcessName,Path }');
+    console.log('');
+    console.log('   解法擇一：關閉那個程式，或改用其他連接埠');
+    console.log('   （編輯 config/config.json 的 server.port，客戶端 Base URL 也要一起改）。');
+    console.log('');
+
+    log.warn('連接埠被其他服務攔截', {
+      port: boundPort, host: conflict.host, problem: conflict.problem, detail: conflict.detail,
+    });
+  } else if (config.server.openBrowserOnStart) {
+    openBrowser(localUrl);
+  }
 
   // 停止腳本會建立哨兵檔（見 paths.shutdownRequest 的說明）
   try { fs.rmSync(paths.shutdownRequest, { force: true }); } catch { /* 不存在就算了 */ }
@@ -215,13 +299,46 @@ export async function main() {
 }
 
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('index.mjs')) {
-  main().catch((err) => {
+  main().catch(async (err) => {
     console.error('');
-    console.error('  啟動失敗：', err.message);
     if (err.code === 'EADDRINUSE') {
-      console.error('  連接埠已被占用，請於 config/config.json 修改 server.port 後再試。');
+      // 這是最常見的啟動失敗。訊息要能直接告訴管理員下一步怎麼做，
+      // 否則他們會打開瀏覽器、看到「另一個程式」的回應，然後以為是 AGI BAR 壞了。
+      const cfg = loadConfig();
+      const port = cfg.server.port;
+      const free = await findFreePort(port + 1, cfg.server.host).catch(() => null);
+
+      console.error('  ╔══════════════════════════════════════════════════════════╗');
+      console.error('  ║  啟動失敗：連接埠已被其他程式占用                        ║');
+      console.error('  ╚══════════════════════════════════════════════════════════╝');
+      console.error('');
+      console.error(`   連接埠 ${port} 上已經有別的程式在執行。`);
+      console.error('   AGI BAR 沒有啟動 —— 此時用瀏覽器打開該位址，看到的是');
+      console.error('   那個程式的畫面，不是 AGI BAR。');
+      console.error('');
+      console.error('   查出是誰占用（PowerShell）：');
+      console.error(`     Get-NetTCPConnection -LocalPort ${port} -State Listen |`);
+      console.error('       ForEach-Object { Get-Process -Id $_.OwningProcess }');
+      console.error('');
+      console.error('   解法擇一：');
+      console.error('     A. 關閉占用該連接埠的程式，再重新啟動 AGI BAR');
+      if (free) {
+        console.error(`     B. 改用其他連接埠 —— 目前 ${free} 是空的：`);
+        console.error(`        編輯 config/config.json，把 "port": ${port} 改成 "port": ${free}`);
+        console.error(`        （臨時測試可用：set AGIBAR_PORT=${free}）`);
+        console.error('');
+        console.error('     注意：改了連接埠之後，所有客戶端的 Base URL 也要一起改。');
+      } else {
+        console.error('     B. 編輯 config/config.json 的 server.port 換一個連接埠');
+      }
+    } else {
+      console.error('  啟動失敗：', err.message);
+      if (err.code === 'EACCES') {
+        console.error('  沒有權限綁定該連接埠。1024 以下的連接埠需要系統管理員權限。');
+      }
     }
     console.error('');
+    await closeLogger().catch(() => {});
     process.exit(1);
   });
 }
