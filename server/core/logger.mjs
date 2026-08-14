@@ -63,3 +63,20 @@ export const log = {
   warn: (m, meta) => emit('warn', m, meta),
   error: (m, meta) => emit('error', m, meta),
 };
+
+/**
+ * 關機時把緩衝中的紀錄寫完再離開。
+ * stream.write 是非同步的，直接 process.exit() 會讓最後幾行紀錄消失 ——
+ * 而那幾行（關機原因、錯誤）正是事後查問題最需要的。
+ */
+export function closeLogger({ timeoutMs = 2000 } = {}) {
+  return new Promise((resolve) => {
+    if (!stream) return resolve();
+    const s = stream;
+    stream = null;
+    const done = () => { clearTimeout(timer); resolve(); };
+    const timer = setTimeout(done, timeoutMs);
+    timer.unref?.();
+    s.end(done);
+  });
+}

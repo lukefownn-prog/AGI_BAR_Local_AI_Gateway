@@ -1,14 +1,27 @@
 @echo off
-chcp 65001 >nul
 setlocal enabledelayedexpansion
 title AGI BAR - Local AI Gateway
 
 rem ==========================================================
-rem  AGI BAR 啟動腳本（規畫書 11）
-rem  刻意使用透明的批次檔而非自製未簽章 EXE，方便管理員與 EDR 稽核。
+rem  AGI BAR startup script (plan section 11)
+rem
+rem  KEEP THIS FILE PURE ASCII.
+rem
+rem  cmd.exe decodes a batch file using the *console* codepage
+rem  (950 on zh-TW Windows), not UTF-8. Non-ASCII text saved as
+rem  UTF-8 is therefore misread as Big5, and "chcp 65001" halfway
+rem  through shifts the parser's byte offsets so that later lines
+rem  get chopped into fragments ('ple.json" (' and similar).
+rem
+rem  All localized (Chinese) output is printed by Node instead,
+rem  see server/index.mjs. scripts/lint.mjs enforces ASCII here.
 rem ==========================================================
 
 cd /d "%~dp0"
+
+rem UTF-8 console, so Node's Chinese output renders correctly.
+rem Safe only because this file itself contains no non-ASCII bytes.
+chcp 65001 >nul 2>nul
 
 echo.
 echo   ==========================================================
@@ -16,57 +29,68 @@ echo    AGI BAR - Local AI Gateway Management System
 echo   ==========================================================
 echo.
 
-rem ---- 1. 優先使用內附 runtime\node.exe（Portable ZIP）----
+rem ---- 1. Prefer the bundled runtime (portable ZIP) ----
 set "NODE_EXE="
 if exist "runtime\node.exe" (
     set "NODE_EXE=%~dp0runtime\node.exe"
-    echo   [1/3] 使用內附 Node Runtime
+    echo   [1/3] Using bundled Node runtime
 ) else (
     where node >nul 2>nul
     if errorlevel 1 (
-        echo   [錯誤] 找不到 Node.js。
+        echo   [ERROR] Node.js not found. / ^(Node.js^)
         echo.
-        echo   請擇一處理：
-        echo     A. 下載 Node.js 22 以上的 Windows 版，安裝後重新執行本腳本
-        echo     B. 將 node.exe 放入本資料夾的 runtime\ 目錄
+        echo   Choose one:
+        echo     A. Install Node.js 24 LTS or newer from https://nodejs.org/
+        echo     B. Put node.exe into the runtime\ folder next to this script
         echo.
         pause
         exit /b 1
     )
     set "NODE_EXE=node"
-    echo   [1/3] 使用系統已安裝的 Node.js
+    echo   [1/3] Using system Node.js
 )
 
-rem ---- 2. 版本檢查（node:sqlite 免旗標需 Node 23.4+，實務上要求 24 LTS）----
-for /f "tokens=1 delims=." %%v in ('"%NODE_EXE%" -p "process.versions.node"') do set "NODE_MAJOR=%%v"
-if !NODE_MAJOR! LSS 24 (
-    echo   [錯誤] Node.js 版本過舊（偵測到 v!NODE_MAJOR!），需要 v24 以上。
+rem ---- 2. Version check (node:sqlite needs 23.4+, we require 24 LTS) ----
+rem
+rem  The "usebackq" form with quotes ONLY around the executable is the one
+rem  that survives both a bare "node" on PATH and a full path containing
+rem  spaces (e.g. D:\AGI BAR\runtime\node.exe). Adding a second quoted
+rem  argument makes cmd mis-split the command line, so we use "-v" (which
+rem  needs no argument) and strip the leading "v".
+set "NODE_VER="
+for /f "usebackq tokens=1 delims=." %%v in (`"!NODE_EXE!" -v`) do set "NODE_VER=%%v"
+set "NODE_MAJOR=!NODE_VER:v=!"
+
+if not defined NODE_MAJOR (
+    echo   [ERROR] Could not determine the Node.js version.
+    echo           Tried: "!NODE_EXE!" -p "process.versions.node"
     echo.
     pause
     exit /b 1
 )
-echo   [2/3] Node 版本檢查通過 ^(v!NODE_MAJOR!^)
 
-rem ---- 3. 首次啟動：由範例產生本機設定檔 ----
-if not exist "config\config.json" (
-    if exist "config\config.example.json" (
-        copy /y "config\config.example.json" "config\config.json" >nul
-        echo   [提示] 已由範例建立 config\config.json
-    )
+if !NODE_MAJOR! LSS 24 (
+    echo   [ERROR] Node.js v!NODE_MAJOR! is too old. v24 or newer is required.
+    echo           Download: https://nodejs.org/
+    echo.
+    pause
+    exit /b 1
 )
+echo   [2/3] Node version OK ^(v!NODE_MAJOR!^)
 
-echo   [3/3] 啟動 Gateway 服務...
+rem ---- 3. Start. config\config.json is created by the server on first run. ----
+echo   [3/3] Starting gateway...
 echo.
 
-"%NODE_EXE%" "server\index.mjs"
-set "EXITCODE=%ERRORLEVEL%"
+"!NODE_EXE!" "server\index.mjs"
+set "EXITCODE=!ERRORLEVEL!"
 
 echo.
-if not "%EXITCODE%"=="0" (
-    echo   服務異常結束，代碼：%EXITCODE%
-    echo   詳細訊息請查看 data\logs\ 目錄下的紀錄檔。
+if not "!EXITCODE!"=="0" (
+    echo   Service stopped with error code !EXITCODE!.
+    echo   See data\logs\ for details.
 ) else (
-    echo   服務已正常停止。
+    echo   Service stopped normally.
 )
 echo.
 pause

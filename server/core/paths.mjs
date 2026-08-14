@@ -37,6 +37,10 @@ export const paths = {
   models: path.join(ROOT, 'models'),
   sessionSecret: path.join(DATA, 'session.secret'),
   pidFile: path.join(DATA, 'agibar.pid'),
+  // 停止腳本用的哨兵檔。Windows 沒有真正的訊號：taskkill 送的是 WM_CLOSE，
+  // 沒有視窗的主控台程式收不到，只能被強制終止 —— 那會跳過關閉資料庫與寫紀錄。
+  // 改由停止腳本建立這個檔案，伺服器看到就自己走正常的關機流程。
+  shutdownRequest: path.join(DATA, 'shutdown.request'),
 };
 
 /** 確保執行期需要的資料夾存在（data/ 不進 Git，第一次啟動要自己建）。 */

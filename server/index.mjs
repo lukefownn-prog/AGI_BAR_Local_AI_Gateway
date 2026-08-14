@@ -12,7 +12,7 @@ import { spawn } from 'node:child_process';
 
 import { paths, ensureRuntimeDirs } from './core/paths.mjs';
 import { loadConfig } from './core/config.mjs';
-import { configureLogger, log } from './core/logger.mjs';
+import { configureLogger, closeLogger, log } from './core/logger.mjs';
 import { getDb, closeDb, setSetting } from './core/db.mjs';
 import { HttpError, json, openaiError, anthropicError, clientIp } from './core/http.mjs';
 import { bootstrapAdmin } from './services/users.mjs';
@@ -179,18 +179,33 @@ export async function main() {
 
   if (config.server.openBrowserOnStart) openBrowser(localUrl);
 
+  // 停止腳本會建立哨兵檔（見 paths.shutdownRequest 的說明）
+  try { fs.rmSync(paths.shutdownRequest, { force: true }); } catch { /* 不存在就算了 */ }
+  const shutdownWatcher = setInterval(() => {
+    if (!fs.existsSync(paths.shutdownRequest)) return;
+    try { fs.rmSync(paths.shutdownRequest, { force: true }); } catch { /* 下一輪再試 */ }
+    shutdown('stop-script');
+  }, 1000);
+  shutdownWatcher.unref?.();
+
+  let shuttingDown = false;
   const shutdown = (signal) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     log.info('收到關閉訊號，正在停止服務', { signal });
+    clearInterval(shutdownWatcher);
     stopHealthLoop();
     stopBackupSchedule();
     queue.drain();
-    server.close(() => {
+    server.close(async () => {
       closeDb();
       try { fs.unlinkSync(paths.pidFile); } catch { /* 已刪除 */ }
+      try { fs.rmSync(paths.shutdownRequest, { force: true }); } catch { /* 已刪除 */ }
       log.info('AGI BAR 已停止');
+      await closeLogger();   // 等紀錄寫完再離開，否則最後幾行會消失
       process.exit(0);
     });
-    setTimeout(() => process.exit(0), 5000).unref();
+    setTimeout(async () => { await closeLogger(); process.exit(0); }, 8000).unref();
   };
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
