@@ -5,10 +5,40 @@
  * 很容易在兩次驗收之間隨著程式改動而爛掉。這裡讓 CI 每次都跑一輪迷你壓測，
  * 確保驗收當天腳本是能用的。
  */
-import test from 'node:test';
+import test, { before } from 'node:test';
 import assert from 'node:assert/strict';
 import { percentile, summarize, groupBy, evaluate, pad, histogram } from './load/stats.mjs';
 import { parseArgs, run } from './load/loadtest.mjs';
+
+/**
+ * 端對端斷言共用同一次執行（scenario: all）。
+ *
+ * 一個行程只能有一套自我測試環境：paths.mjs 在模組載入時就固定 AGIBAR_DATA_DIR，
+ * config.mjs 也會快取設定。第二次 run({selfTest}) 會沿用第一次的設定，
+ * 指向已經關閉的假模型 —— 所有請求變成 503 all_models_unavailable。
+ *
+ * 危險之處在於這種失敗會「假性通過」：burst 情境本來就預期 503，
+ * 斷言照樣成立，但實際上根本沒碰到模型。因此改為單次執行並明確檢查活性。
+ */
+let result = null;
+let verdict = null;
+
+before(async () => {
+  const r = await run({
+    ...parseArgs([]),
+    selfTest: true,
+    users: 4,
+    duration: 3,
+    maxTokens: 24,
+    promptChars: 100,
+    scenario: 'all',
+    quiet: true,
+  });
+  result = r.result;
+  verdict = r.verdict;
+}, { timeout: 180000 });
+
+const inScenario = (name) => result.requests.filter((r) => r.scenario?.startsWith(name));
 
 // ---------------- 統計 ----------------
 
@@ -148,18 +178,7 @@ test('未知參數要明確報錯，而不是默默忽略', () => {
 
 // ---------------- 迷你端對端 ----------------
 
-test('自我測試模式可完整跑完一輪並通過驗收', { timeout: 120000 }, async () => {
-  const { result, verdict } = await run({
-    ...parseArgs([]),
-    selfTest: true,
-    users: 4,
-    duration: 3,
-    maxTokens: 24,
-    promptChars: 100,
-    scenario: 'steady',
-    quiet: true,
-  });
-
+test('自我測試模式可完整跑完一輪並通過驗收', () => {
   assert.ok(result.requests.length > 0, '應該有送出請求');
   assert.ok(result.requests.every((r) => r.status != null), '每筆請求都要有終局狀態');
   assert.ok(result.requests.some((r) => r.requestId), '應該取得 X-Request-Id');
@@ -174,18 +193,17 @@ test('自我測試模式可完整跑完一輪並通過驗收', { timeout: 120000
   assert.equal(verdict.pass, true, verdict.checks.filter((c) => !c.pass).map((c) => c.detail).join('; '));
 });
 
-test('burst 情境會打出 queue_full 而不是崩潰', { timeout: 120000 }, async () => {
-  const { result } = await run({
-    ...parseArgs([]),
-    selfTest: true,
-    users: 4,
-    scenario: 'burst',
-    maxTokens: 16,
-    promptChars: 50,
-    quiet: true,
-  });
+test('假模型確實有回應 —— 排除環境沒接上卻假性通過的情況', () => {
+  const steady = inScenario('steady');
+  const ok = steady.filter((r) => r.status === 200);
+  assert.ok(ok.length > 0, 'steady 情境必須有成功的請求，否則代表沒真的連到模型');
+  assert.ok(ok.every((r) => r.outputTokens > 0), '成功的請求必須有輸出 token');
+  assert.ok(!steady.some((r) => r.errorCode === 'all_models_unavailable'),
+    '出現 all_models_unavailable 代表自我測試環境沒接上');
+});
 
-  const burst = result.requests.filter((r) => r.scenario === 'burst');
+test('burst 情境會打到上限而不是崩潰', () => {
+  const burst = inScenario('burst');
   assert.ok(burst.length > 0);
   assert.ok(burst.every((r) => r.status != null));
 
@@ -194,20 +212,19 @@ test('burst 情境會打出 queue_full 而不是崩潰', { timeout: 120000 }, as
   const bad = burst.filter((r) => r.status !== 200 && ![429, 503, 504].includes(r.status));
   assert.equal(bad.length, 0, `非預期狀態：${[...new Set(bad.map((r) => `${r.status} ${r.errorCode}`))].join(', ')}`);
 
-  const rejected = burst.filter((r) => r.status !== 200);
-  assert.ok(rejected.length > 0, 'burst 應該要打到某個上限，否則這個情境沒有意義');
+  assert.ok(burst.some((r) => r.status !== 200), 'burst 應該要打到某個上限，否則這個情境沒有意義');
+  assert.ok(burst.some((r) => r.status === 200), 'burst 也該有成功的請求，全掛代表環境有問題');
 });
 
-test('quota 情境確實擋下 RPM、單次上限與每日額度', { timeout: 120000 }, async () => {
-  const { result } = await run({
-    ...parseArgs([]),
-    selfTest: true,
-    users: 4,
-    scenario: 'quota',
-    quiet: true,
-  });
+test('longrun 情境的長回應不被中途切斷', () => {
+  const long = inScenario('longrun');
+  assert.equal(long.length, 1);
+  assert.equal(long[0].status, 200, `長回應失敗：${long[0].errorCode}`);
+  assert.ok(long[0].outputTokens > 100, `輸出過短，疑似被切斷：${long[0].outputTokens} tokens`);
+});
 
-  const codes = new Set(result.requests.map((r) => r.errorCode).filter(Boolean));
+test('quota 情境確實擋下 RPM、單次上限與每日額度', () => {
+  const codes = new Set(inScenario('quota').map((r) => r.errorCode).filter(Boolean));
   assert.ok(codes.has('rate_limit_exceeded'), 'RPM 應該被擋');
   assert.ok(codes.has('request_too_large'), '單次上限應該被擋');
   assert.ok(codes.has('quota_exceeded'), '每日額度應該被擋');

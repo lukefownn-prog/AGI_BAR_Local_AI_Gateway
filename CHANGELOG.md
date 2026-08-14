@@ -51,10 +51,29 @@ Claude Code 走的是 Anthropic 格式，本地模型幾乎只講 OpenAI 格式�
   CI 每次都會跑一輪迷你壓測，避免這支平常不執行的腳本在兩次驗收之間爛掉。
 - 測試人員一律以 `loadtest-` 開頭並自動清除，中途 Ctrl+C 也會清。
 
+**客戶端串接驗證腳本（M11，Issue #1）**
+
+`tests/integration/client-compat.mjs`。Cursor 與 Codex 是 GUI / CLI 工具無法自動化點擊，
+但它們**實際會送出的請求形狀**可以驗 —— 端點、標頭、參數組合、串流格式、
+工具呼叫的訊息序列。腳本打完這些之後印出可直接貼上的設定與剩餘的人工清單。
+
+探測過程找出兩個真實問題：
+
+- **Codex 需要 `wire_api = "chat"`。** 新版 Codex CLI 預設走 OpenAI Responses API
+  （`POST /v1/responses`），AGI BAR 沒有這個端點。少了這行會連不上，
+  錯誤訊息也不會指出原因。產生的 `codex-config.toml` 已帶上。
+- **`tokensPerRequest` 預設 8192 太小。** IDE 類客戶端會把整份檔案塞進 prompt，
+  動輒上萬 token；8192 會讓小型測試全過、實際使用卻大量 413。
+  已改為 32768，與範例主力模型的 `contextWindow` 對齊。
+
+### 修正
+- `config.example.json` 的 `limits.defaultUserLimits.tokensPerRequest`：8192 → 32768
+
+- 測試從 86 項增加到 125 項
+
 ### 待辦
+- M11 各客戶端的實機點擊驗證（API 層面已全數通過，Issue #1）
 - M14 對真實 GPU 主機與 LAN 多機的實機驗收（腳本已完成，Issue #2）
-- Cursor / Codex / DeepSeek 的實機串接驗證（M11，Issue #1）
-- Claude Code 對接真實本地模型的實機驗證（轉譯層已完成並通過測試）
 
 ---
 

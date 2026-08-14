@@ -19,6 +19,8 @@
     "check:portable": "node scripts/check-portable.mjs",
     "healthcheck": "node scripts/healthcheck.mjs",
     "loadtest": "node tests/load/loadtest.mjs",
+    "compat": "node tests/integration/client-compat.mjs",
+    "compat:self": "node tests/integration/client-compat.mjs --self-test",
     "loadtest:self": "node tests/load/loadtest.mjs --self-test"
   },
   "dependencies": {},

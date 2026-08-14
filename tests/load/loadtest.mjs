@@ -597,6 +597,13 @@ function fmtRow(s) {
 
 // ---------------------------------------------------------------- 自我測試環境
 
+/**
+ * 在本行程內起一台 Gateway 與假模型農場。
+ *
+ * 限制：一個行程只能有一套自我測試環境。core/paths.mjs 在模組載入時就固定
+ * AGIBAR_DATA_DIR，core/config.mjs 也會快取設定，因此第二次呼叫會沿用第一次的
+ * 環境（指向已關閉的假模型）。需要多組情境時請分行程執行。
+ */
 async function startSelfTestEnv() {
   const { startFarm } = await import('./mock-farm.mjs');
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'agibar-load-'));

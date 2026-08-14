@@ -31,7 +31,8 @@
     "maxUsers": 50,
     "defaultUserLimits": {
       "status": "active",
-      "tokensPerRequest": 8192,
+      "_tokensPerRequest_comment": "IDE 類客戶端（Cursor / Codex / Claude Code）會把整份檔案塞進 prompt，動輒上萬 token。設 8192 會讓小型測試都過、實際使用卻大量 413。此值應與主力模型的 contextWindow 對齊。",
+      "tokensPerRequest": 32768,
       "tokensPerHour": 100000,
       "tokensPerDay": 500000,
       "tokensPerMonth": 5000000,

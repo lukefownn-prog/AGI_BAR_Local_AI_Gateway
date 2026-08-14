@@ -139,7 +139,15 @@ npm run loadtest:self                      # 驗證腳本本身（不需 GPU）
 npm run loadtest -- --url http://<IP>:8787 --admin-pass "…" --users 10
 ```
 
-說明見 **[tests/load/README.md](tests/load/README.md)**。
+客戶端串接驗證：
+
+```bash
+npm run compat:self                        # 驗證腳本本身
+npm run compat -- --url http://<IP>:8787 --key agi-bar-xxxxxxxx
+```
+
+說明見 **[tests/load/README.md](tests/load/README.md)** 與
+**[tests/integration/README.md](tests/integration/README.md)**。
 
 分支規則、PR 流程與 Release 步驟見 **[docs/開發流程.md](docs/開發流程.md)**。
 
