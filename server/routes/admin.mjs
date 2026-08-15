@@ -15,6 +15,7 @@ import * as quota from '../services/quota.mjs';
 import { queue } from '../services/queue.mjs';
 import { createBackup, listBackups } from '../services/backup.mjs';
 import { lanUrls as netLanUrls } from '../core/net.mjs';
+import { lastPurgeAt } from '../services/retention.mjs';
 
 export const adminRouter = new Router();
 
@@ -392,7 +393,7 @@ adminRouter.get('/api/settings', async (req, res, ctx) => {
     limits: c.limits,
     queue: c.queue,
     models: { healthCheckIntervalMs: c.models.healthCheckIntervalMs, defaultRoute: c.models.defaultRoute, publicAliases: c.models.publicAliases },
-    logging: c.logging,
+    logging: { ...c.logging, lastPurgeAt: lastPurgeAt() },
     backup: c.backup,
     notice: 'API Key、密碼與外部憑證不會出現在此端點，也不會寫入設定檔。',
   });

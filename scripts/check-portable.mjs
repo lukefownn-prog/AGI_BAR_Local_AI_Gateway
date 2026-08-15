@@ -43,6 +43,7 @@ const REQUIRED_FILES = [
   'server/services/gateway.mjs',
   'server/services/session.mjs',
   'server/services/backup.mjs',
+  'server/services/retention.mjs',
   'server/services/anthropic-compat.mjs',
   'server/routes/admin.mjs',
   'server/routes/openai.mjs',

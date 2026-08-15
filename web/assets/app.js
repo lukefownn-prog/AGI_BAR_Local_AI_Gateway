@@ -1249,7 +1249,9 @@ async function renderSettings() {
           <tr><th>${esc(t('set.defaultRoute'))}</th><td class="mono">${(s.models.defaultRoute || []).map(esc).join(' → ') || t('common.dash')}</td></tr>
           <tr><th>${esc(t('set.retention'))}</th><td>${esc(t('set.retentionDays', { n: s.logging.retentionDays }))}　${s.logging.logPrompts
             ? `<span class="tag warn">${esc(t('set.logPrompts'))}</span>`
-            : `<span class="tag ok">${esc(t('set.logHashOnly'))}</span>`}</td></tr>
+            : `<span class="tag ok">${esc(t('set.logHashOnly'))}</span>`}
+            <div class="small muted">${esc(t('set.retentionHint'))}${s.logging.lastPurgeAt
+              ? '　' + esc(t('set.lastPurge', { time: fmtTime(s.logging.lastPurgeAt) })) : ''}</div></td></tr>
         </table>
         <p class="small muted mt mb0">${t('set.editNote')}</p>
       </div>

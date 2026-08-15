@@ -483,6 +483,8 @@ const ZH = {
   'set.defaultRoute': '預設模型路由',
   'set.retention': '紀錄保留',
   'set.retentionDays': '{n} 天',
+  'set.retentionHint': '同時涵蓋 data/logs 的日誌檔與資料庫中的使用、請求、稽核紀錄，每日自動清理。',
+  'set.lastPurge': '上次清理 {time}',
   'set.logPrompts': '記錄 Prompt 內容',
   'set.logHashOnly': '僅記錄 Prompt 雜湊',
   'set.editNote': '更完整的設定請直接編輯 <span class="mono">config/config.json</span> 後重新啟動服務。',
@@ -998,6 +1000,8 @@ const EN = {
   'set.defaultRoute': 'Default model route',
   'set.retention': 'Log retention',
   'set.retentionDays': '{n} days',
+  'set.retentionHint': 'Covers both the log files in data/logs and the usage, request and audit records in the database. Purged daily.',
+  'set.lastPurge': 'Last purged {time}',
   'set.logPrompts': 'Prompt content is logged',
   'set.logHashOnly': 'Only prompt hashes are logged',
   'set.editNote': 'For fuller configuration, edit <span class="mono">config/config.json</span> directly and restart '
@@ -1511,6 +1515,8 @@ const JA = {
   'set.defaultRoute': '既定のモデルルート',
   'set.retention': 'ログ保持期間',
   'set.retentionDays': '{n} 日',
+  'set.retentionHint': 'data/logs のログファイルと、データベース内の利用・リクエスト・監査の記録の両方が対象です。毎日自動で削除されます。',
+  'set.lastPurge': '最終削除 {time}',
   'set.logPrompts': 'プロンプト本文を記録',
   'set.logHashOnly': 'プロンプトのハッシュのみ記録',
   'set.editNote': 'より詳細な設定は <span class="mono">config/config.json</span> を直接編集し、'
