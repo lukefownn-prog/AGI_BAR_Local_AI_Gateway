@@ -128,8 +128,33 @@ async function renderDashboard() {
             <tr><th>API Key</th><td>每位人員自己的 <span class="mono">agi-bar-xxxxxxxx</span></td></tr>
             <tr><th>主機</th><td>${esc(d.system.hostname)}　<span class="muted small">${esc(d.system.platform)}</span></td></tr>
           </table>
+
+          <div class="mt">
+            <b class="small">手機或其他電腦連不到？</b>
+            <p class="small muted" style="margin:4px 0 8px">
+              最常見的原因是 Windows 防火牆沒有放行這個連接埠。
+              以<b>系統管理員身分</b>開啟 PowerShell，執行下面這行後再試一次：
+            </p>
+            <div class="keybox" id="fwCmd">${esc(firewallCommand(d.system.port))}</div>
+            <div class="btn-row mt">
+              <button class="sm" id="copyFwBtn">複製指令</button>
+            </div>
+            <p class="small muted mt mb0">
+              指令只需執行一次。若你的網路被歸類為「公用網路」，把
+              <span class="mono">-Profile Private</span> 改成
+              <span class="mono">-Profile Private,Public</span>
+              （但公用網路環境不建議開放）。
+            </p>
+          </div>
         </div>
       </div>`;
+
+    document.getElementById('copyFwBtn').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(firewallCommand(d.system.port));
+        toast('ok', '已複製防火牆指令');
+      } catch { toast('warn', '瀏覽器拒絕存取剪貼簿，請手動選取複製'); }
+    });
 
     document.getElementById('hcBtn').addEventListener('click', async (e) => {
       e.target.disabled = true;
@@ -140,6 +165,17 @@ async function renderDashboard() {
 
   await draw();
   dashboardTimer = setInterval(() => { draw().catch(() => {}); }, 10000);
+}
+
+/**
+ * 放行連接埠的防火牆指令。
+ *
+ * 這是區網連不上時最常見、也最不容易自己想到的原因 —— 服務跑得好好的、
+ * IP 也對，就是連不進來，而畫面上沒有任何線索。把指令直接放在連線資訊旁邊，
+ * 管理員複製貼上就能解決。
+ */
+function firewallCommand(port) {
+  return `New-NetFirewallRule -DisplayName "AGI BAR" -Direction Inbound -LocalPort ${port} -Protocol TCP -Action Allow -Profile Private`;
 }
 
 function uptimeText(sec) {
