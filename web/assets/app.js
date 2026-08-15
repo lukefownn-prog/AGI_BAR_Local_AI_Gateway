@@ -556,9 +556,30 @@ async function renderKeys() {
 // ================= AI 模型 =================
 
 async function renderModels() {
-  const { models } = await api('/api/models');
+  const [{ models }, { defaultRoute }] = await Promise.all([
+    api('/api/models'), api('/api/models/route'),
+  ]);
   modelCache = models;
   content.innerHTML = `
+    <div class="panel">
+      <header>
+        <h3>預設模型順序　<span class="muted small">順位 1 就是主力模型</span></h3>
+        <button class="primary" id="saveRouteBtn">儲存順序</button>
+      </header>
+      <div class="body">
+        <p class="small muted">
+          請求會依這個順序嘗試：順位 1 離線、壅塞或健康檢查失敗時，自動改用順位 2，依此類推。
+          個別人員可在「人員 → 管理」中設定專屬順序，未設定者就用這裡的預設。
+        </p>
+        <div id="routeEditor"></div>
+      </div>
+    </div>
+    ${models.some((m) => m.enabled && m.health_state === 'offline' && /環境變數/.test(m.last_error)) ? `
+      <div class="alert warn small">
+        有模型因為<b>缺少 API 金鑰</b>而離線。外部雲端模型的金鑰必須放在環境變數，
+        不會存進設定檔。設定方式見下方模型列的錯誤訊息。
+      </div>` : ''}`;
+  content.innerHTML += `
     <div class="alert info small">
       新增模型後會立即生效，不需重新啟動。設定會寫回
       <span class="mono">config/config.json</span>，那裡仍是唯一的設定來源。
@@ -600,6 +621,20 @@ async function renderModels() {
       依規畫書原則，本地開源模型優先，外部 API 僅作為管理員明確授權的備援路由。
     </div>`;
 
+  mountDefaultRouteEditor(document.getElementById('routeEditor'), defaultRoute, models);
+
+  document.getElementById('saveRouteBtn').addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    try {
+      await api('/api/models/route', {
+        method: 'PUT',
+        body: { defaultRoute: document.getElementById('routeEditor')._order },
+      });
+      toast('ok', '順序已儲存');
+      renderModels();
+    } catch (err) { e.target.disabled = false; toast('error', err.message); }
+  });
+
   document.getElementById('addModelBtn').addEventListener('click', openAddModelDialog);
 
   document.getElementById('hcBtn').addEventListener('click', async () => {
@@ -622,6 +657,59 @@ async function renderModels() {
       modelCache = []; toast('ok', '已移除'); renderModels();
     } catch (e) { toast('error', e.message); }
   }));
+}
+
+/**
+ * 預設路由編輯器。順位就是 Failover 的嘗試順序（規畫書 7）。
+ * 沒有這個介面的話，「哪個是主力、哪個是備援」只能去改設定檔，管理員無從得知。
+ */
+function mountDefaultRouteEditor(host, initial, models) {
+  const byId = new Map(models.map((m) => [m.id, m]));
+  const order = initial.filter((id) => byId.get(id)?.enabled);
+
+  const draw = () => {
+    const available = models.filter((m) => m.enabled && !order.includes(m.id));
+    host.innerHTML = `
+      ${order.length ? order.map((id, i) => {
+        const m = byId.get(id);
+        const stateOk = m.health_state === 'online';
+        return `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px">
+            <span class="tag ${i === 0 ? 'info' : ''}">${i === 0 ? '主力' : `備援 ${i}`}</span>
+            <span style="flex:1">
+              <b>${esc(m.display_name)}</b>
+              <span class="small muted mono">${esc(m.id)}</span>
+            </span>
+            ${stateOk ? '<span class="tag ok">線上</span>' : `<span class="tag danger">${esc(m.health_state)}</span>`}
+            <button class="sm" data-up="${i}" ${i === 0 ? 'disabled' : ''}>↑</button>
+            <button class="sm" data-down="${i}" ${i === order.length - 1 ? 'disabled' : ''}>↓</button>
+            <button class="sm danger" data-rm="${i}">移出</button>
+          </div>`;
+      }).join('') : '<div class="alert warn small">預設順序是空的 —— 未設定專屬順序的人員將無法使用任何模型。</div>'}
+      ${available.length ? `
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <select data-add style="flex:1">
+            <option value="">＋ 把模型加入順序…</option>
+            ${available.map((m) => `<option value="${esc(m.id)}">${esc(m.display_name)}${m.is_local ? '' : '（外部雲端）'}</option>`).join('')}
+          </select>
+        </div>` : ''}`;
+
+    host.querySelectorAll('[data-up]').forEach((b) => b.addEventListener('click', () => {
+      const i = Number(b.dataset.up); [order[i - 1], order[i]] = [order[i], order[i - 1]]; draw();
+    }));
+    host.querySelectorAll('[data-down]').forEach((b) => b.addEventListener('click', () => {
+      const i = Number(b.dataset.down); [order[i + 1], order[i]] = [order[i], order[i + 1]]; draw();
+    }));
+    host.querySelectorAll('[data-rm]').forEach((b) => b.addEventListener('click', () => {
+      order.splice(Number(b.dataset.rm), 1); draw();
+    }));
+    host.querySelector('[data-add]')?.addEventListener('change', (e) => {
+      if (e.target.value) { order.push(e.target.value); draw(); }
+    });
+  };
+
+  host._order = order;
+  draw();
 }
 
 /**
@@ -657,11 +745,63 @@ async function openAddModelDialog() {
           <button class="primary" id="discoverBtn">探索</button>
         </div>
       </label>
-      <div id="discoverResult"></div>`,
+      <div id="discoverResult"></div>
+
+      <details class="mt">
+        <summary style="cursor:pointer;font-size:13px">
+          手動新增（外部雲端 API，例如 DeepSeek）
+        </summary>
+        <div class="alert warn small mt">
+          <b>外部雲端模型會把 Prompt 送出本機網路。</b>
+          依規畫書原則本地模型優先，外部 API 僅作為明確授權的備援。<br>
+          金鑰**只能**放環境變數，這裡填變數名稱而不是金鑰本身 ——
+          金鑰不會、也不應該寫進設定檔。
+        </div>
+        <div class="grid-2">
+          <label class="field"><span>模型代號 *</span><input type="text" id="c_id" class="mono" placeholder="cloud-deepseek"></label>
+          <label class="field"><span>顯示名稱</span><input type="text" id="c_name" placeholder="DeepSeek 雲端備援"></label>
+        </div>
+        <div class="grid-2">
+          <label class="field"><span>端點網址 *</span><input type="text" id="c_endpoint" class="mono" placeholder="https://api.deepseek.com/v1"></label>
+          <label class="field"><span>上游模型名稱 *</span><input type="text" id="c_model" class="mono" placeholder="deepseek-chat"></label>
+        </div>
+        <div class="grid-3">
+          <label class="field"><span>金鑰環境變數</span><input type="text" id="c_env" class="mono" placeholder="DEEPSEEK_API_KEY"></label>
+          <label class="field"><span>上下文</span><input type="number" id="c_ctx" value="65536"></label>
+          <label class="field"><span>來源</span>
+            <select id="c_local">
+              <option value="0">外部雲端</option>
+              <option value="1">本地</option>
+            </select></label>
+        </div>
+        <div class="btn-row"><button class="primary" id="manualAddBtn">新增</button></div>
+      </details>`,
     footerHtml: '<button data-close>關閉</button>',
     onMount: (node, close) => {
       const endpointInput = node.querySelector('#m_endpoint');
       const resultBox = node.querySelector('#discoverResult');
+
+      node.querySelector('#manualAddBtn').addEventListener('click', async (e) => {
+        e.target.disabled = true;
+        try {
+          await api('/api/models', {
+            method: 'POST',
+            body: {
+              id: node.querySelector('#c_id').value.trim(),
+              displayName: node.querySelector('#c_name').value.trim(),
+              endpoint: node.querySelector('#c_endpoint').value.trim(),
+              model: node.querySelector('#c_model').value.trim(),
+              apiKeyEnv: node.querySelector('#c_env').value.trim(),
+              contextWindow: Number(node.querySelector('#c_ctx').value),
+              isLocal: node.querySelector('#c_local').value === '1',
+              vramMb: 0,
+              // 外部模型加進來後預設不進路由 —— 要不要用備援是管理員的明確決定
+              addToDefaultRoute: node.querySelector('#c_local').value === '1',
+            },
+          });
+          close(); toast('ok', '已新增'); modelCache = []; renderModels();
+        } catch (err) { e.target.disabled = false; toast('error', err.message); }
+      });
 
       node.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => {
         endpointInput.value = b.dataset.preset;

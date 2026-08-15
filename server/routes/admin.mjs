@@ -242,7 +242,27 @@ adminRouter.get('/api/models', async (req, res) => {
 adminRouter.patch('/api/models/:id', async (req, res, ctx) => {
   const s = sessions.requireAdmin(req);
   const body = await readJsonBody(req, 8192);
-  json(res, 200, { model: models.setModelEnabled(ctx.params.id, !!body.enabled, ctxOf(req, ctx.config, s)) });
+  const model = models.setModelEnabled(ctx.params.id, !!body.enabled, {
+    ...ctxOf(req, ctx.config, s),
+    configModule: { loadConfig, saveConfig },
+  });
+  json(res, 200, { model });
+});
+
+/** 預設路由的順序就是主力→備援（規畫書 7）。 */
+adminRouter.get('/api/models/route', async (req, res, ctx) => {
+  sessions.requireAdmin(req);
+  json(res, 200, { defaultRoute: ctx.config.models?.defaultRoute ?? [] });
+});
+
+adminRouter.put('/api/models/route', async (req, res, ctx) => {
+  const s = sessions.requireAdmin(req);
+  const body = await readJsonBody(req, 16384);
+  const order = models.setDefaultRoute(body.defaultRoute ?? [], {
+    ...ctxOf(req, ctx.config, s),
+    configModule: { loadConfig, saveConfig },
+  });
+  json(res, 200, { defaultRoute: order });
 });
 
 adminRouter.post('/api/models/healthcheck', async (req, res, ctx) => {

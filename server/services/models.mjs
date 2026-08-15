@@ -193,9 +193,49 @@ export function removeModel(id, ctx = {}) {
 export function setModelEnabled(id, enabled, ctx = {}) {
   const m = getModel(id);
   if (!m) throw new HttpError(404, 'model_not_found', '找不到模型');
+
+  // 一定要寫回設定檔。只改資料庫的話，下次啟動 syncCatalog 會用設定檔的
+  // enabled 覆蓋回去 —— 管理員會發現「我明明啟用了，重開就不見」。
+  if (ctx.configModule) {
+    const { loadConfig, saveConfig } = ctx.configModule;
+    const config = loadConfig();
+    const catalog = (config.models?.catalog ?? []).map(
+      (x) => (x.id === id ? { ...x, enabled: !!enabled } : x),
+    );
+    const patch = { models: { catalog } };
+
+    // 停用的模型留在預設路由裡只會讓每次請求多試一次再失敗
+    if (!enabled) {
+      patch.models.defaultRoute = (config.models?.defaultRoute ?? []).filter((r) => r !== id);
+    } else if (!(config.models?.defaultRoute ?? []).includes(id)) {
+      patch.models.defaultRoute = [...(config.models?.defaultRoute ?? []), id];
+    }
+    saveConfig(patch);
+  }
+
   run("UPDATE models SET enabled = ?, updated_at = datetime('now') WHERE id = ?", [enabled ? 1 : 0, id]);
   audit(ctx.actorId, 'model.enabled', `model:${id}`, String(!!enabled), ctx.clientIp);
+  log.info('模型啟用狀態變更', { id, enabled: !!enabled });
   return getModel(id);
+}
+
+/** 調整預設路由的順序。順位 1 就是主力模型，其餘依序為備援。 */
+export function setDefaultRoute(order, ctx = {}) {
+  const { loadConfig, saveConfig } = ctx.configModule;
+  if (!Array.isArray(order)) throw new HttpError(400, 'invalid_route', '路由需為模型代號陣列');
+  if (new Set(order).size !== order.length) {
+    throw new HttpError(400, 'duplicate_model', '同一模型不可重複出現在路由中');
+  }
+  for (const id of order) {
+    const m = getModel(id);
+    if (!m) throw new HttpError(400, 'model_not_found', `模型不存在：${id}`);
+    if (!m.enabled) throw new HttpError(400, 'model_disabled', `模型已停用，不能加入路由：${id}`);
+  }
+
+  saveConfig({ models: { defaultRoute: order } });
+  audit(ctx.actorId, 'route.default', 'default', order.join('>'), ctx.clientIp);
+  log.info('預設路由已更新', { order });
+  return order;
 }
 
 export function recordModelStats(id, { firstTokenMs, tokensPerSec, ok = true, vramUsedMb }) {
@@ -241,6 +281,13 @@ export async function checkModel(modelRow, config) {
   const apiKey = resolveModelApiKey(def);
   const url = `${String(modelRow.endpoint).replace(/\/+$/, '')}/models`;
   const started = Date.now();
+
+  // 少了金鑰只會拿到一個沒頭沒尾的 HTTP 401，管理員很難看出要去設環境變數。
+  // 先明確判斷，把原因直接寫進狀態裡。
+  if (def?.apiKeyEnv && !apiKey) {
+    markHealth(modelRow.id, 'offline', `缺少環境變數 ${def.apiKeyEnv}，未提供 API 金鑰`);
+    return { id: modelRow.id, state: 'offline', latencyMs: 0, reason: 'missing_api_key' };
+  }
   try {
     const res = await fetch(url, {
       method: 'GET',

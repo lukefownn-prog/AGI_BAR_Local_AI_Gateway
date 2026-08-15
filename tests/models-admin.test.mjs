@@ -156,6 +156,95 @@ test('新增後健康檢查看得到它', async () => {
   assert.equal(hit.state, 'online');
 });
 
+// ---------------- 啟用／停用要能存活重啟 ----------------
+
+test('停用模型會寫回設定檔，不只是資料庫', async () => {
+  // 只改資料庫的話，重啟時 syncCatalog 會用設定檔的值蓋回去 ——
+  // 管理員會遇到「我明明停用了，重開又自己啟用」。
+  const r = await api('/api/models/ollama-test', { method: 'PATCH', body: { enabled: false } });
+  assert.equal(r.status, 200);
+
+  const onDisk = readConfigFile().models.catalog.find((m) => m.id === 'ollama-test');
+  assert.equal(onDisk.enabled, false, '停用狀態必須寫進 config.json');
+});
+
+test('停用的模型會從預設路由移出', async () => {
+  assert.equal(readConfigFile().models.defaultRoute.includes('ollama-test'), false,
+    '停用的模型留在路由裡只會讓每次請求多試一次再失敗');
+});
+
+test('重新啟用會寫回設定檔並放回路由', async () => {
+  await api('/api/models/ollama-test', { method: 'PATCH', body: { enabled: true } });
+  const cfg = readConfigFile();
+  assert.equal(cfg.models.catalog.find((m) => m.id === 'ollama-test').enabled, true);
+  assert.ok(cfg.models.defaultRoute.includes('ollama-test'));
+});
+
+// ---------------- 預設路由（主力／備援）----------------
+
+test('可讀取預設路由', async () => {
+  const r = await api('/api/models/route');
+  assert.equal(r.status, 200);
+  assert.ok(Array.isArray(r.body.defaultRoute));
+});
+
+test('可調整主力與備援的順序', async () => {
+  const second = await api('/api/models', {
+    method: 'POST',
+    body: { id: 'backup-model', displayName: '備援', endpoint: mock.endpoint, model: 'discovered-model' },
+  });
+  assert.equal(second.status, 201);
+
+  const r = await api('/api/models/route', {
+    method: 'PUT', body: { defaultRoute: ['backup-model', 'ollama-test'] },
+  });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.defaultRoute, ['backup-model', 'ollama-test']);
+  assert.deepEqual(readConfigFile().models.defaultRoute, ['backup-model', 'ollama-test'],
+    '順序必須寫進設定檔才會在重啟後保留');
+});
+
+test('路由不接受重複、不存在或已停用的模型', async () => {
+  const cases = [
+    [['ollama-test', 'ollama-test'], /重複/],
+    [['does-not-exist'], /不存在/],
+  ];
+  for (const [route, pattern] of cases) {
+    const r = await api('/api/models/route', { method: 'PUT', body: { defaultRoute: route } });
+    assert.equal(r.status, 400);
+    assert.match(r.body.error.message, pattern);
+  }
+
+  await api('/api/models/backup-model', { method: 'PATCH', body: { enabled: false } });
+  const disabled = await api('/api/models/route', { method: 'PUT', body: { defaultRoute: ['backup-model'] } });
+  assert.equal(disabled.status, 400);
+  assert.match(disabled.body.error.message, /已停用/);
+  await api('/api/models/backup-model', { method: 'DELETE' });
+});
+
+// ---------------- 缺少金鑰的診斷 ----------------
+
+test('外部模型缺少金鑰時，狀態會直接說明原因', async () => {
+  await api('/api/models', {
+    method: 'POST',
+    body: {
+      id: 'cloud-x', displayName: '雲端測試', endpoint: 'https://api.example.invalid/v1',
+      model: 'x', apiKeyEnv: 'DEFINITELY_UNSET_KEY_FOR_TEST', isLocal: false, addToDefaultRoute: false,
+    },
+  });
+
+  const r = await api('/api/models/healthcheck', { method: 'POST' });
+  const hit = r.body.results.find((x) => x.id === 'cloud-x');
+  assert.equal(hit.state, 'offline');
+  assert.equal(hit.reason, 'missing_api_key', '應辨識出是缺金鑰，而不是丟一個沒頭沒尾的 401');
+
+  const listed = (await api('/api/models')).body.models.find((m) => m.id === 'cloud-x');
+  assert.match(listed.last_error, /DEFINITELY_UNSET_KEY_FOR_TEST/,
+    '錯誤訊息要指出缺的是哪一個環境變數');
+
+  await api('/api/models/cloud-x', { method: 'DELETE' });
+});
+
 // ---------------- 移除 ----------------
 
 test('移除模型會一併清掉設定檔與預設路由', async () => {
