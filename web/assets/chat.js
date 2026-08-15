@@ -1,5 +1,8 @@
 /* 網頁聊天：人員以自己的 API Key 連線，走與外部工具相同的 /v1 管線。 */
 import { esc, el, fmtTokens, modal, toast } from './api.js';
+import { initI18n, onLangChange, t } from './i18n.js';
+
+initI18n({ docTitleKey: 'chat.pageTitle' });
 
 const KEY_STORE = 'agibar_api_key';
 const messagesEl = document.getElementById('messages');
@@ -16,7 +19,8 @@ const getKey = () => localStorage.getItem(KEY_STORE) || '';
 document.getElementById('keyBtn').addEventListener('click', openKeyDialog);
 document.getElementById('clearBtn').addEventListener('click', () => {
   history = [];
-  messagesEl.innerHTML = '<div class="empty"><p class="muted small">對話已清除。</p></div>';
+  messagesEl.innerHTML = '<div class="empty"><p class="muted small" data-i18n="chat.cleared"></p></div>';
+  messagesEl.querySelector('p').textContent = t('chat.cleared');
 });
 
 promptEl.addEventListener('input', () => {
@@ -29,6 +33,14 @@ promptEl.addEventListener('keydown', (e) => {
 });
 sendBtn.addEventListener('click', send);
 
+// 切換語言後，已送出的對話內容保留，只重新翻譯介面上的固定文字。
+onLangChange(() => {
+  if (getKey()) refreshMe();
+  messagesEl.querySelectorAll('.msg .avatar').forEach((a) => {
+    a.textContent = a.parentElement.classList.contains('user') ? t('chat.avatarUser') : t('chat.avatarAi');
+  });
+});
+
 if (getKey()) refreshMe(); else openKeyDialog();
 
 async function refreshMe() {
@@ -36,39 +48,40 @@ async function refreshMe() {
     const res = await fetch('/v1/me', { headers: { Authorization: `Bearer ${getKey()}` } });
     if (!res.ok) {
       const e = await res.json().catch(() => ({}));
-      whoLabel.textContent = e?.error?.message || 'API Key 無效';
+      whoLabel.textContent = e?.error?.message || t('chat.keyInvalid');
       return false;
     }
     const d = await res.json();
     whoLabel.textContent = `${d.user.username}（${d.key.prefix}…）`;
     quotaTag.hidden = false;
-    quotaTag.textContent = `今日剩餘 ${fmtTokens(d.usage.remainingDay)} Token`;
+    quotaTag.textContent = t('chat.remaining', { n: fmtTokens(d.usage.remainingDay) });
     quotaTag.className = 'tag ' + (d.usage.remainingDay <= 0 ? 'danger' : 'ok');
     return true;
   } catch (err) {
-    whoLabel.textContent = '無法連線：' + err.message;
+    whoLabel.textContent = t('chat.cannotConnect', { msg: err.message });
     return false;
   }
 }
 
 function openKeyDialog() {
   modal({
-    title: '設定 API Key',
+    title: t('chat.keyTitle'),
     width: 500,
     bodyHtml: `
-      <p class="small muted">請輸入管理員配發給你的 API Key。Key 只會保存在這台瀏覽器的 localStorage。</p>
+      <p class="small muted">${esc(t('chat.keyDesc'))}</p>
       <label class="field"><span>API Key</span>
         <input type="text" id="k" class="mono" placeholder="agi-bar-…" value="${esc(getKey())}"></label>
       <div class="alert info small">
-        同一把 Key 也可用於 Cursor / Claude Code / Codex 等工具。<br>
-        Base URL：<span class="mono">${esc(location.origin)}/v1</span>
+        ${t('chat.keyInfo')}<br>
+        ${esc(t('key.baseUrl'))}：<span class="mono">${esc(location.origin)}/v1</span>
       </div>`,
-    footerHtml: '<button data-close>取消</button><button class="primary" data-save>儲存</button>',
+    footerHtml: `<button data-close>${esc(t('common.cancel'))}</button>`
+      + `<button class="primary" data-save>${esc(t('common.save'))}</button>`,
     onMount: (node, close) => {
       node.querySelector('[data-save]').addEventListener('click', async () => {
         localStorage.setItem(KEY_STORE, node.querySelector('#k').value.trim());
         close();
-        if (await refreshMe()) toast('ok', '已連線'); else toast('error', 'API Key 驗證失敗');
+        if (await refreshMe()) toast('ok', t('chat.connected')); else toast('error', t('chat.keyFailed'));
       });
     },
   });
@@ -79,9 +92,10 @@ function addMessage(role, text, cls = '') {
   messagesEl.querySelector('.empty')?.remove();
   const node = el(`
     <div class="msg ${role} ${cls}">
-      <div class="avatar">${role === 'user' ? '我' : 'AI'}</div>
+      <div class="avatar"></div>
       <div><div class="text"></div><div class="meta"></div></div>
     </div>`);
+  node.querySelector('.avatar').textContent = role === 'user' ? t('chat.avatarUser') : t('chat.avatarAi');
   node.querySelector('.text').textContent = text;
   messagesEl.appendChild(node);
   messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -160,7 +174,7 @@ async function send() {
   } catch (err) {
     textEl.classList.remove('cursor');
     node.classList.add('error');
-    textEl.textContent = '錯誤：' + err.message;
+    textEl.textContent = t('chat.error', { msg: err.message });
     history.pop(); // 失敗的一輪不進上下文
   } finally {
     busy = false;

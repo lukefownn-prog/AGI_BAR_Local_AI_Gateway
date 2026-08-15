@@ -1,10 +1,15 @@
 /* 管理員登入。CSP 禁用 inline script，故獨立成檔。 */
+import { initI18n, t } from './i18n.js';
+
+initI18n({ docTitleKey: 'login.pageTitle' });
+
 const form = document.getElementById('loginForm');
 const msg = document.getElementById('msg');
 const btn = document.getElementById('submitBtn');
 
 function show(kind, text) {
-  msg.innerHTML = `<div class="alert ${kind}">${text}</div>`;
+  msg.innerHTML = `<div class="alert ${kind}"></div>`;
+  msg.firstElementChild.textContent = text;
 }
 
 // 已登入就直接進管理台
@@ -28,14 +33,14 @@ form.addEventListener('submit', async (e) => {
     });
     const data = await res.json();
     if (!res.ok) {
-      show('error', data?.error?.message || '登入失敗');
+      show('error', data?.error?.message || t('login.failed'));
       btn.disabled = false;
       return;
     }
     if (data.mustChangePassword) sessionStorage.setItem('agibar_must_change_pw', '1');
     location.replace('/app.html');
   } catch (err) {
-    show('error', '無法連線到伺服器：' + err.message);
+    show('error', t('login.netError', { msg: err.message }));
     btn.disabled = false;
   }
 });

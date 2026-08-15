@@ -55,6 +55,7 @@ const REQUIRED_FILES = [
   'web/assets/app.css',
   'web/assets/app.js',
   'web/assets/api.js',
+  'web/assets/i18n.js',
   'web/assets/login.js',
   'web/assets/chat.js',
   'web/assets/chat.css',

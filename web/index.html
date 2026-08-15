@@ -3,35 +3,39 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AGI BAR - 管理員登入</title>
+  <title data-i18n-title="login.pageTitle">AGI BAR - 管理員登入</title>
   <link rel="stylesheet" href="/assets/app.css">
 </head>
 <body>
   <div class="login-wrap">
     <form class="login-card" id="loginForm" autocomplete="on">
+      <div class="lang-row">
+        <select class="lang-select" data-lang-select></select>
+      </div>
+
       <h1>AGI BAR</h1>
-      <p class="sub">Local AI Gateway Management System</p>
+      <p class="sub" data-i18n="login.subtitle">Local AI Gateway Management System</p>
 
       <div id="msg"></div>
 
       <label class="field">
-        <span>管理員帳號</span>
+        <span data-i18n="login.username">管理員帳號</span>
         <input type="text" id="username" name="username" autocomplete="username" required autofocus>
       </label>
 
       <label class="field">
-        <span>密碼</span>
+        <span data-i18n="login.password">密碼</span>
         <input type="password" id="password" name="password" autocomplete="current-password" required>
       </label>
 
-      <button type="submit" class="primary block" id="submitBtn">登入</button>
+      <button type="submit" class="primary block" id="submitBtn" data-i18n="login.submit">登入</button>
 
-      <p class="small muted mt mb0">
+      <p class="small muted mt mb0" data-i18n-html="login.note">
         本系統僅供內部網路使用。人員請改用 API Key 連接
         <span class="mono">/v1</span>，或前往 <a href="/chat.html">網頁聊天</a>。
       </p>
     </form>
   </div>
-  <script src="/assets/login.js"></script>
+  <script type="module" src="/assets/login.js"></script>
 </body>
 </html>
