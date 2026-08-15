@@ -635,6 +635,14 @@ async function openAddModelDialog() {
     title: '新增模型',
     width: 700,
     bodyHtml: `
+      <div class="alert info small">
+        <b>AGI BAR 不執行推論，也不存放模型檔。</b>
+        它把請求轉給 Ollama / LM Studio / llama.cpp 這類推理服務。<br>
+        要用新模型，先安裝到那些服務裡（Ollama 是
+        <span class="mono">ollama pull &lt;模型名稱&gt;</span>），再回到這裡探索即可。<br>
+        專案的 <span class="mono">models/</span> 資料夾放模型檔<b>沒有作用</b> ——
+        那只有在你自行內附 llama.cpp 時才用得到。
+      </div>
       <p class="small muted">
         填入本地推理服務的 OpenAI 相容端點，按「探索」列出已安裝的模型。
       </p>

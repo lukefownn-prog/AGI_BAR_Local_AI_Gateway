@@ -45,11 +45,21 @@ fs.copyFileSync(path.join(ROOT, 'config/config.example.json'), path.join(STAGE, 
 // 建立執行期會用到的空目錄，附說明
 for (const [dir, note] of [
   ['data', '執行期資料（資料庫、紀錄、備份）會自動產生於此。更新程式時請保留本目錄。'],
-  ['models', '把 GGUF 等模型檔放在這裡。模型不隨程式發佈。'],
+  ['models', [
+    'AGI BAR 不會讀取這個目錄，本身也不執行推論。',
+    '它只是把請求轉給 Ollama / LM Studio / llama.cpp 這類推理服務。',
+    '',
+    '要新增模型，請安裝到那些服務裡（例如：ollama pull <模型名稱>），',
+    '再到管理台「AI 模型」頁按「＋ 新增模型」填入它們的端點。',
+    '',
+    '本目錄只有在你自行把 llama.cpp 放進 runtime/ 時才用得到，',
+    '用來擺放要給 llama.cpp 讀的 GGUF 檔。',
+  ]],
   ['runtime', '若主機沒有安裝 Node.js 24+，把 node.exe 放在這裡，啟動腳本會優先使用。'],
 ]) {
   fs.mkdirSync(path.join(STAGE, dir), { recursive: true });
-  fs.writeFileSync(path.join(STAGE, dir, 'README.txt'), note + '\n', 'utf8');
+  const text = Array.isArray(note) ? note.join('\r\n') : note;   // README.txt 給 Windows 記事本看
+  fs.writeFileSync(path.join(STAGE, dir, 'README.txt'), text + '\r\n', 'utf8');
 }
 
 // ---- 3. 結構檢查 ----
