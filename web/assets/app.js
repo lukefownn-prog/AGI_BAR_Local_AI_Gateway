@@ -217,7 +217,7 @@ async function renderUsers() {
           <tbody>${users.map((u) => `
             <tr>
               <td class="mono">${esc(u.username)}</td>
-              <td>${esc(u.display_name || t('common.dash'))}</td>
+              <td>${esc(u.display_name || u.username)}</td>
               <td>${u.role === 'admin'
                 ? `<span class="tag info">${esc(t('role.admin'))}</span>`
                 : esc(t('role.user'))}</td>
