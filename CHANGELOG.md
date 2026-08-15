@@ -5,6 +5,28 @@
 
 ## [Unreleased]
 
+### 移除
+
+**受控上網（Web Search / URL Fetch）整組功能**
+
+管理台的「網路」頁、`/v1/tools/*` 工具端點與相關配額欄位全部移除。
+AGI BAR 回歸單純的網關職責：驗證、配額、排隊、路由、紀錄。
+
+- 刪除 `server/services/websafe.mjs` 與 `tests/websafe.test.mjs`
+- 刪除 `POST /v1/tools/web_search`、`POST /v1/tools/url_fetch`
+- 刪除 `GET/PATCH /api/internet`、`POST /api/internet/test`、`GET /api/logs/web`
+- 刪除管理台「網路與安全上網」頁與側邊欄項目、儀表板的「Internet 狀態」卡、
+  紀錄頁的「受控上網紀錄」面板
+- **新增人員／配額設定的「允許上網」欄位取消**，API Key 總表的「上網」欄一併移除
+- 設定檔移除整個 `internet` 區塊與 `limits.defaultUserLimits.internetAllowed`
+- schema 移除 `api_key_limits.internet_allowed`、`request_logs.used_internet`
+  與 `web_access_logs` 資料表（既有資料庫的欄位都有預設值，不需手動遷移）
+
+**保留管理台的存取隔離。** `security.adminAccess` 維持原樣 ——
+預設只有 AI 主機本機能開管理台，區網人員連 `/app.html` 與 `/api/*` 一律回 404，
+管理台看起來就像不存在。這項判定所需的 `ipInCidr` 已從 `services/websafe.mjs`
+搬到 `core/net.mjs`，對應的 CIDR 測試也移入 `tests/net.test.mjs`。
+
 ### 新增
 
 **網頁介面多語系與語言切換下拉選單**

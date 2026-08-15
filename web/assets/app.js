@@ -13,7 +13,6 @@ const PAGES = {
   users: { titleKey: 'page.users', render: renderUsers },
   keys: { titleKey: 'page.keys', render: renderKeys },
   models: { titleKey: 'page.models', render: renderModels },
-  internet: { titleKey: 'page.internet', render: renderInternet },
   logs: { titleKey: 'page.logs', render: renderLogs },
   settings: { titleKey: 'page.settings', render: renderSettings },
 };
@@ -100,13 +99,6 @@ async function renderDashboard() {
         <div class="stat"><div class="label">${esc(t('dash.primaryModel'))}</div>
           <div class="value" style="font-size:17px;padding-top:6px">${esc(d.primaryModel?.name || t('dash.noPrimary'))}</div>
           <div class="hint">${d.primaryModel ? healthTag(d.primaryModel.state) : esc(t('dash.noModelSet'))}</div></div>
-        <div class="stat"><div class="label">${esc(t('dash.internet'))}</div>
-          <div class="value" style="font-size:17px;padding-top:6px">
-            ${d.internet.enabled
-              ? `<span class="tag warn">${esc(t('dash.internetOpen'))}</span>`
-              : `<span class="tag ok">${esc(t('dash.internetClosed'))}</span>`}
-          </div>
-          <div class="hint">${esc(d.internet.blockPrivateNetworks ? t('dash.privateBlocked') : t('dash.privateUnblocked'))}</div></div>
         <div class="stat"><div class="label">${esc(t('dash.uptime'))}</div>
           <div class="value" style="font-size:20px">${esc(uptimeText(d.system.uptimeSec))}</div>
           <div class="hint">${esc(t('dash.memFree', { n: fmtNum(d.system.memFreeMb) }))}</div></div>
@@ -457,7 +449,7 @@ function limitsFormHtml(v = {}) {
       <label class="field"><span>${esc(t('lim.rpm'))}</span><input type="number" id="l_rpm" value="${g('rpm', 20)}"></label>
       <label class="field"><span>${esc(t('lim.concurrent'))}</span><input type="number" id="l_conc" value="${g('concurrent', 2)}"></label>
     </div>
-    <div class="grid-3">
+    <div class="grid-2">
       <label class="field"><span>${esc(t('lim.priority'))}</span>
         <select id="l_priority">
           ${['admin', 'high', 'normal', 'guest'].map((p) =>
@@ -467,11 +459,6 @@ function limitsFormHtml(v = {}) {
         <select id="l_policy">
           <option value="hard" ${g('overQuotaPolicy', 'hard') === 'hard' ? 'selected' : ''}>${esc(t('lim.hard'))}</option>
           <option value="soft" ${g('overQuotaPolicy', 'hard') === 'soft' ? 'selected' : ''}>${esc(t('lim.soft'))}</option>
-        </select></label>
-      <label class="field"><span>${esc(t('lim.internet'))}</span>
-        <select id="l_internet">
-          <option value="0" ${!g('internetAllowed', false) ? 'selected' : ''}>${esc(t('lim.internetDeny'))}</option>
-          <option value="1" ${g('internetAllowed', false) ? 'selected' : ''}>${esc(t('lim.internetAllow'))}</option>
         </select></label>
     </div>
     <div class="grid-2">
@@ -499,7 +486,6 @@ function readLimitsForm(node) {
     concurrent: Number(q('l_conc').value),
     priority: q('l_priority').value,
     overQuotaPolicy: q('l_policy').value,
-    internetAllowed: q('l_internet').value === '1',
     validFrom: q('l_from').value || null,
     validUntil: q('l_until').value || null,
     dailyWindowStart: q('l_ws').value || '00:00',
@@ -513,7 +499,7 @@ function openLimitsDialog(key, onDone) {
     tokensPerRequest: key.tokens_per_request, tokensPerHour: key.tokens_per_hour,
     tokensPerDay: key.tokens_per_day, tokensPerMonth: key.tokens_per_month,
     rpm: key.rpm, concurrent: key.concurrent, priority: key.priority,
-    internetAllowed: !!key.internet_allowed, validFrom: key.valid_from, validUntil: key.valid_until,
+    validFrom: key.valid_from, validUntil: key.valid_until,
     dailyWindowStart: key.daily_window_start, dailyWindowEnd: key.daily_window_end,
     weekdays: String(key.weekdays || '').split(',').filter(Boolean).map(Number),
     overQuotaPolicy: key.over_quota_policy,
@@ -596,7 +582,7 @@ async function renderKeys() {
             <th>${esc(t('th.prefix'))}</th><th>${esc(t('th.user'))}</th><th>${esc(t('th.keyName'))}</th>
             <th>${esc(t('th.state'))}</th><th>${esc(t('th.priority'))}</th>
             <th class="num">${esc(t('th.tokensPerDay'))}</th><th class="num">${esc(t('th.rpm'))}</th>
-            <th>${esc(t('th.window'))}</th><th>${esc(t('th.expiry'))}</th><th>${esc(t('th.internet'))}</th>
+            <th>${esc(t('th.window'))}</th><th>${esc(t('th.expiry'))}</th>
             <th>${esc(t('th.lastUsed'))}</th>
           </tr></thead>
           <tbody>${keys.map((k) => `
@@ -610,11 +596,8 @@ async function renderKeys() {
               <td class="num">${k.rpm}</td>
               <td class="small nowrap">${esc(k.daily_window_start)}-${esc(k.daily_window_end)}<div class="muted">${esc(weekdaysText(k.weekdays))}</div></td>
               <td class="small nowrap">${k.valid_until ? esc(k.valid_until) : esc(t('keys.noExpiry'))}</td>
-              <td>${k.internet_allowed
-                ? `<span class="tag warn">${esc(t('keys.allow'))}</span>`
-                : `<span class="tag">${esc(t('keys.deny'))}</span>`}</td>
               <td class="small muted nowrap">${fmtTime(k.last_used_at)}</td>
-            </tr>`).join('') || `<tr><td colspan="11" class="empty">${esc(t('keys.empty'))}</td></tr>`}
+            </tr>`).join('') || `<tr><td colspan="10" class="empty">${esc(t('keys.empty'))}</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -1127,111 +1110,12 @@ function shortModelName(full) {
   return parts[parts.length - 1] || full;
 }
 
-// ================= 網路（規畫書 9）=================
-
-async function renderInternet() {
-  const { internet } = await api('/api/internet');
-  const f = internet.fetch ?? {};
-  content.innerHTML = `
-    <div class="panel">
-      <header><h3>${esc(t('inet.policy'))}</h3></header>
-      <div class="body">
-        <div class="alert warn small">${esc(t('inet.warn'))}</div>
-        <div class="grid-2">
-          <label class="field"><span>${esc(t('inet.sysLevel'))}</span>
-            <select id="i_enabled">
-              <option value="0" ${!internet.enabled ? 'selected' : ''}>${esc(t('inet.off'))}</option>
-              <option value="1" ${internet.enabled ? 'selected' : ''}>${esc(t('inet.on'))}</option>
-            </select></label>
-          <label class="field"><span>${esc(t('inet.blockPrivate'))}</span>
-            <select id="i_blockPrivate">
-              <option value="1" ${f.blockPrivateNetworks !== false ? 'selected' : ''}>${esc(t('inet.enabledRec'))}</option>
-              <option value="0" ${f.blockPrivateNetworks === false ? 'selected' : ''}>${esc(t('inet.disabled'))}</option>
-            </select></label>
-        </div>
-        <div class="grid-2">
-          <label class="field"><span>${esc(t('inet.searchEndpoint'))}</span>
-            <input type="text" id="i_endpoint" value="${esc(internet.searchEndpoint || '')}" placeholder="http://searx.example.com/search"></label>
-          <label class="field"><span>${esc(t('inet.maxResults'))}</span><input type="number" id="i_maxResults" value="${internet.maxResults ?? 5}"></label>
-        </div>
-        <div class="grid-3">
-          <label class="field"><span>${esc(t('inet.maxBytes'))}</span><input type="number" id="i_maxBytes" value="${f.maxBytes ?? 2097152}"></label>
-          <label class="field"><span>${esc(t('inet.timeout'))}</span><input type="number" id="i_timeout" value="${f.timeoutMs ?? 10000}"></label>
-          <label class="field"><span>${esc(t('inet.maxRedirects'))}</span><input type="number" id="i_redirects" value="${f.maxRedirects ?? 3}"></label>
-        </div>
-        <div class="grid-2">
-          <label class="field"><span>${esc(t('inet.allowlist'))}</span>
-            <textarea id="i_allow">${esc((f.domainAllowlist || []).join('\n'))}</textarea></label>
-          <label class="field"><span>${esc(t('inet.blocklist'))}</span>
-            <textarea id="i_block">${esc((f.domainBlocklist || []).join('\n'))}</textarea></label>
-        </div>
-        <label class="field"><span>${esc(t('inet.cidrs'))}</span>
-          <textarea id="i_cidr" style="min-height:120px">${esc((f.blockedCidrs || []).join('\n'))}</textarea></label>
-        <label class="field"><span>${esc(t('inet.types'))}</span>
-          <textarea id="i_types">${esc((f.allowedContentTypes || []).join('\n'))}</textarea></label>
-        <div class="btn-row"><button class="primary" id="saveInternet">${esc(t('inet.save'))}</button></div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <header><h3>${esc(t('inet.testTitle'))}</h3></header>
-      <div class="body">
-        <p class="small muted">${esc(t('inet.testDesc'))}</p>
-        <div style="display:flex;gap:8px">
-          <input type="text" id="testUrl" placeholder="https://example.com" style="flex:1">
-          <button id="testBtn">${esc(t('inet.testBtn'))}</button>
-        </div>
-        <div id="testResult" class="mt"></div>
-      </div>
-    </div>`;
-
-  const lines = (id) => document.getElementById(id).value.split('\n').map((s) => s.trim()).filter(Boolean);
-
-  document.getElementById('saveInternet').addEventListener('click', async () => {
-    try {
-      await api('/api/internet', {
-        method: 'PATCH',
-        body: {
-          enabled: document.getElementById('i_enabled').value === '1',
-          searchEndpoint: document.getElementById('i_endpoint').value.trim(),
-          searchProvider: document.getElementById('i_endpoint').value.trim() ? 'custom' : 'none',
-          maxResults: Number(document.getElementById('i_maxResults').value),
-          fetch: {
-            maxBytes: Number(document.getElementById('i_maxBytes').value),
-            timeoutMs: Number(document.getElementById('i_timeout').value),
-            maxRedirects: Number(document.getElementById('i_redirects').value),
-            blockPrivateNetworks: document.getElementById('i_blockPrivate').value === '1',
-            domainAllowlist: lines('i_allow'),
-            domainBlocklist: lines('i_block'),
-            blockedCidrs: lines('i_cidr'),
-            allowedContentTypes: lines('i_types'),
-          },
-        },
-      });
-      toast('ok', t('inet.saved'));
-    } catch (e) { toast('error', e.message); }
-  });
-
-  document.getElementById('testBtn').addEventListener('click', async () => {
-    const box = document.getElementById('testResult');
-    box.innerHTML = `<div class="small muted">${esc(t('inet.testing'))}</div>`;
-    try {
-      const r = await api('/api/internet/test', { method: 'POST', body: { url: document.getElementById('testUrl').value } });
-      box.innerHTML = r.allowed
-        ? `<div class="alert ok">${esc(t('inet.allowed'))}　<span class="small">${esc(r.contentType)} · ${fmtNum(r.bytes)} bytes</span></div>
-           <div class="small muted mono" style="white-space:pre-wrap;max-height:200px;overflow:auto">${esc(r.preview)}</div>`
-        : `<div class="alert error">${esc(t('inet.blocked', { code: r.code }))}<br>${esc(r.message)}</div>`;
-    } catch (e) { box.innerHTML = `<div class="alert error">${esc(e.message)}</div>`; }
-  });
-}
-
 // ================= 紀錄（規畫書 12）=================
 
 async function renderLogs() {
-  const [usage, reqs, web] = await Promise.all([
+  const [usage, reqs] = await Promise.all([
     api('/api/logs/usage?days=14'),
     api('/api/logs/requests?limit=100'),
-    api('/api/logs/web?limit=50'),
   ]);
 
   const maxDay = Math.max(1, ...usage.byDay.map((d) => d.total_tokens));
@@ -1300,29 +1184,7 @@ async function renderLogs() {
         </tbody></table>
       </div>
     </div>
-
-    <div class="panel">
-      <header><h3>${esc(t('logs.web'))}</h3></header>
-      <div class="body flush table-scroll">
-        <table><thead><tr>
-          <th>${esc(t('th.time'))}</th><th>${esc(t('th.user'))}</th><th>${esc(t('th.tool'))}</th>
-          <th>${esc(t('th.target'))}</th><th>${esc(t('th.resolvedIp'))}</th><th>${esc(t('th.result'))}</th>
-        </tr></thead>
-        <tbody>${web.logs.map((w) => `
-          <tr>
-            <td class="small nowrap">${fmtTime(w.ts)}</td>
-            <td class="small">${esc(w.username || t('common.dash'))}</td>
-            <td class="small">${esc(w.tool)}</td>
-            <td class="small mono" style="max-width:280px;overflow:hidden;text-overflow:ellipsis">${esc(w.target)}</td>
-            <td class="small mono">${esc(w.resolved_ip || t('common.dash'))}</td>
-            <td class="small">${w.allowed
-              ? `<span class="tag ok">${esc(t('logs.pass'))}</span>`
-              : `<span class="tag danger">${esc(t('logs.block'))}</span>`}
-              <div class="muted small">${esc(w.reason)}</div></td>
-          </tr>`).join('') || `<tr><td colspan="6" class="empty">${esc(t('logs.noWeb'))}</td></tr>`}
-        </tbody></table>
-      </div>
-    </div>`;
+`;
 }
 
 // ================= 設定 =================

@@ -147,7 +147,6 @@ async function provisionUsers(client, { count, protocol }) {
           dailyWindowEnd: '23:59',
           weekdays: [0, 1, 2, 3, 4, 5, 6],
           overQuotaPolicy: 'hard',
-          internetAllowed: false,
         },
       },
     });

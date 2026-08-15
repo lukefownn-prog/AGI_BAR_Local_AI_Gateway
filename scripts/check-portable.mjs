@@ -41,7 +41,6 @@ const REQUIRED_FILES = [
   'server/services/routes.mjs',
   'server/services/queue.mjs',
   'server/services/gateway.mjs',
-  'server/services/websafe.mjs',
   'server/services/session.mjs',
   'server/services/backup.mjs',
   'server/services/anthropic-compat.mjs',

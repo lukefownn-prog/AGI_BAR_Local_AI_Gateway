@@ -87,7 +87,7 @@ for (const rel of filesToScan) {
 // ---------- 3. 內網位址外洩 ----------
 const PRIVATE_IP = /\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})\b/;
 const IP_OK = new Set(['docs/整合設定.md', 'docs/部署.md', 'docs/安全須知.md', 'README.md',
-  'config/config.example.json', 'tests/websafe.test.mjs', 'server/services/websafe.mjs',
+  'config/config.example.json', 'server/core/net.mjs', 'tests/net.test.mjs',
   'scripts/security-scan.mjs', 'CHANGELOG.md']);
 
 for (const rel of filesToScan) {

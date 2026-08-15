@@ -134,14 +134,14 @@ export function logRequest(entry) {
     `INSERT INTO request_logs
        (request_id, user_id, api_key_id, route, requested_model, served_model, failover_from,
         priority, queue_wait_ms, inference_ms, first_token_ms, status_code, error_code,
-        error_message, used_internet, prompt_hash, client_ip, user_agent)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        error_message, prompt_hash, client_ip, user_agent)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       entry.requestId, entry.userId ?? null, entry.keyId ?? null, entry.route ?? '',
       entry.requestedModel ?? '', entry.servedModel ?? '', entry.failoverFrom ?? '',
       entry.priority ?? 'normal', entry.queueWaitMs ?? 0, entry.inferenceMs ?? 0,
       entry.firstTokenMs ?? 0, entry.statusCode ?? 200, entry.errorCode ?? '',
-      String(entry.errorMessage ?? '').slice(0, 500), entry.usedInternet ? 1 : 0,
+      String(entry.errorMessage ?? '').slice(0, 500),
       entry.promptHash ?? '', entry.clientIp ?? '', String(entry.userAgent ?? '').slice(0, 200),
     ],
   );

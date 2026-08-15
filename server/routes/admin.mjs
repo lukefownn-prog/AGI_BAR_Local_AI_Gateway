@@ -13,7 +13,6 @@ import * as models from '../services/models.mjs';
 import * as routes from '../services/routes.mjs';
 import * as quota from '../services/quota.mjs';
 import { queue } from '../services/queue.mjs';
-import { urlFetch } from '../services/websafe.mjs';
 import { createBackup, listBackups } from '../services/backup.mjs';
 import { lanUrls as netLanUrls } from '../core/net.mjs';
 
@@ -116,11 +115,6 @@ adminRouter.get('/api/dashboard', async (req, res, ctx) => {
       firstTokenMs: Math.round(m.avg_first_token_ms), tokensPerSec: Number(m.avg_tokens_per_sec.toFixed(1)),
       errorRate: Number((m.error_rate * 100).toFixed(1)), lastError: m.last_error,
     })),
-    internet: {
-      enabled: !!config.internet?.enabled,
-      provider: config.internet?.searchProvider ?? 'none',
-      blockPrivateNetworks: config.internet?.fetch?.blockPrivateNetworks !== false,
-    },
     system: {
       hostname: os.hostname(),
       platform: `${os.type()} ${os.release()}`,
@@ -379,15 +373,6 @@ adminRouter.get('/api/logs/usage', async (req, res, ctx) => {
   });
 });
 
-adminRouter.get('/api/logs/web', async (req, res, ctx) => {
-  sessions.requireAdmin(req);
-  const limit = Math.min(500, Number(ctx.query.get('limit') || 100));
-  json(res, 200, {
-    logs: all(`SELECT w.*, u.username FROM web_access_logs w LEFT JOIN users u ON u.id = w.user_id
-               ORDER BY w.id DESC LIMIT ?`, [limit]),
-  });
-});
-
 adminRouter.get('/api/logs/audit', async (req, res, ctx) => {
   sessions.requireAdmin(req);
   const limit = Math.min(500, Number(ctx.query.get('limit') || 100));
@@ -395,32 +380,6 @@ adminRouter.get('/api/logs/audit', async (req, res, ctx) => {
     logs: all(`SELECT a.*, u.username FROM audit_logs a LEFT JOIN users u ON u.id = a.actor_id
                ORDER BY a.id DESC LIMIT ?`, [limit]),
   });
-});
-
-// ---------------- 網路政策 ----------------
-
-adminRouter.get('/api/internet', async (req, res, ctx) => {
-  sessions.requireAdmin(req);
-  json(res, 200, { internet: ctx.config.internet });
-});
-
-adminRouter.patch('/api/internet', async (req, res) => {
-  sessions.requireAdmin(req);
-  const body = await readJsonBody(req, 65536);
-  const next = saveConfig({ internet: body });
-  json(res, 200, { internet: next.internet });
-});
-
-/** 讓管理員在開放給人員之前，先測試某個網址是否會被政策放行。 */
-adminRouter.post('/api/internet/test', async (req, res, ctx) => {
-  const s = sessions.requireAdmin(req);
-  const body = await readJsonBody(req, 8192);
-  try {
-    const result = await urlFetch(body.url, ctx.config, { userId: s.user.id, requestId: 'admin-test' });
-    json(res, 200, { allowed: true, contentType: result.contentType, bytes: result.bytes, preview: result.text.slice(0, 800) });
-  } catch (err) {
-    json(res, 200, { allowed: false, code: err.code || 'error', message: err.message });
-  }
 });
 
 // ---------------- 設定 / 佇列 / 備份 ----------------

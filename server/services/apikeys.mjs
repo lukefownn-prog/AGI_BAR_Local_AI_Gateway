@@ -18,7 +18,6 @@ const LIMIT_COLUMNS = {
   rpm: 'rpm',
   concurrent: 'concurrent',
   priority: 'priority',
-  internetAllowed: 'internet_allowed',
   validFrom: 'valid_from',
   validUntil: 'valid_until',
   dailyWindowStart: 'daily_window_start',
@@ -36,7 +35,6 @@ function defaultsToRow(d) {
     rpm: d.rpm,
     concurrent: d.concurrent,
     priority: d.priority,
-    internet_allowed: d.internetAllowed ? 1 : 0,
     valid_from: d.validFrom ?? null,
     valid_until: d.validUntil ?? null,
     daily_window_start: d.dailyWindowStart ?? '00:00',
@@ -50,7 +48,7 @@ export function listKeys(userId = null) {
   const sql = `
     SELECT k.*, u.username, u.display_name, u.status AS user_status, u.role,
            l.tokens_per_request, l.tokens_per_hour, l.tokens_per_day, l.tokens_per_month,
-           l.rpm, l.concurrent, l.priority, l.internet_allowed,
+           l.rpm, l.concurrent, l.priority,
            l.valid_from, l.valid_until, l.daily_window_start, l.daily_window_end,
            l.weekdays, l.over_quota_policy
     FROM api_keys k
@@ -141,7 +139,6 @@ export function updateLimits(keyId, patch, ctx = {}) {
     if (col === 'over_quota_policy' && !['hard', 'soft'].includes(value)) {
       throw new HttpError(400, 'invalid_policy', '超額政策僅支援 hard / soft');
     }
-    if (col === 'internet_allowed') value = value ? 1 : 0;
     if (col === 'weekdays' && Array.isArray(value)) value = value.join(',');
     if ((col === 'daily_window_start' || col === 'daily_window_end') && !/^\d{2}:\d{2}$/.test(value)) {
       throw new HttpError(400, 'invalid_time', '時段格式需為 HH:MM');
@@ -173,7 +170,6 @@ export function rowToLimits(row) {
     rpm: row.rpm,
     concurrent: row.concurrent,
     priority: row.priority,
-    internetAllowed: !!row.internet_allowed,
     validFrom: row.valid_from,
     validUntil: row.valid_until,
     dailyWindowStart: row.daily_window_start,
@@ -192,7 +188,7 @@ export function authenticateApiKey(plaintext) {
   const row = get(
     `SELECT k.*, u.username, u.role, u.status AS user_status, u.display_name,
             l.tokens_per_request, l.tokens_per_hour, l.tokens_per_day, l.tokens_per_month,
-            l.rpm, l.concurrent, l.priority, l.internet_allowed,
+            l.rpm, l.concurrent, l.priority,
             l.valid_from, l.valid_until, l.daily_window_start, l.daily_window_end,
             l.weekdays, l.over_quota_policy
      FROM api_keys k

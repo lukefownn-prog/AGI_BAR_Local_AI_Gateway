@@ -18,8 +18,8 @@
 | 速率控制 | RPM 與 Concurrent 同時請求數 |
 | 模型路由 | 每人獨立優先順序，順位 1 失效自動 Failover 到下一順位 |
 | 優先佇列 | P0 管理員 / P1 高 / P2 一般 / P3 訪客 + anti-starvation |
-| 安全上網 | 受控 Web Search / URL Fetch，預設封鎖所有內網位址 |
-| 完整稽核 | 每次請求的等待、推理、Token、Failover 與上網行為都留存 |
+| 管理台隔離 | 管理介面預設僅限 AI 主機本機存取，區網人員一律回 404 |
+| 完整稽核 | 每次請求的等待、推理、Token 與 Failover 行為都留存 |
 | 雙協定相容 | 同時支援 OpenAI `/v1/chat/completions` 與 Anthropic `/v1/messages`，共用同一份配額 |
 
 **零 npm 相依。** 全部以 Node.js 內建模組實作（`node:http` + `node:sqlite` + `node:crypto`），
@@ -113,7 +113,7 @@ agi-bar/
 ├─ web/                 Web UI（管理台 + 網頁聊天，無建置流程）
 ├─ server/              Gateway / API / Queue / Router
 │  ├─ core/             設定、資料庫、加密、HTTP、日誌
-│  ├─ services/         人員、Key、配額、模型、路由、佇列、上網、備份
+│  ├─ services/         人員、Key、配額、模型、路由、佇列、備份
 │  └─ routes/           管理 API、OpenAI 相容 API、靜態檔
 ├─ scripts/             建置與檢查腳本
 ├─ config/              config.example.json（config.json 不進 Git）
@@ -132,7 +132,7 @@ agi-bar/
 npm test
 ```
 
-106 項測試涵蓋佇列優先權與 anti-starvation、時間權限、SSRF 防護、
+163 項測試涵蓋佇列優先權與 anti-starvation、時間權限、管理台存取隔離、
 Anthropic ↔ OpenAI 轉譯，以及兩條端對端管線
 （登入 → 建人員 → 發 Key → 配額 → 路由 → Failover → 紀錄）。
 

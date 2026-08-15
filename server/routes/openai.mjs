@@ -13,7 +13,6 @@ import { getModel, listModels } from '../services/models.mjs';
 import { resolveRouteChain } from '../services/routes.mjs';
 import * as quota from '../services/quota.mjs';
 import * as gw from '../services/gateway.mjs';
-import { urlFetch, webSearch } from '../services/websafe.mjs';
 
 export const openaiRouter = new Router();
 
@@ -248,34 +247,6 @@ openaiRouter.post('/v1/completions', async (req, res, ctx) => {
   } finally {
     admission.release();
   }
-});
-
-// ---------------- 受控上網工具（規畫書 9）----------------
-
-openaiRouter.post('/v1/tools/web_search', async (req, res, ctx) => {
-  const auth = requireApiKey(req);
-  if (!auth.limits.internetAllowed) {
-    throw new HttpError(403, 'internet_not_allowed', '此 API Key 未被授權使用上網功能');
-  }
-  const { query } = await readJsonBody(req, 65536);
-  if (!query || typeof query !== 'string') {
-    throw new HttpError(400, 'invalid_request', 'query 為必填字串');
-  }
-  const result = await webSearch(query, ctx.config, { userId: auth.user.id, requestId: gw.newRequestId() });
-  json(res, 200, result);
-});
-
-openaiRouter.post('/v1/tools/url_fetch', async (req, res, ctx) => {
-  const auth = requireApiKey(req);
-  if (!auth.limits.internetAllowed) {
-    throw new HttpError(403, 'internet_not_allowed', '此 API Key 未被授權使用上網功能');
-  }
-  const { url } = await readJsonBody(req, 65536);
-  if (!url || typeof url !== 'string') {
-    throw new HttpError(400, 'invalid_request', 'url 為必填字串');
-  }
-  const result = await urlFetch(url, ctx.config, { userId: auth.user.id, requestId: gw.newRequestId() });
-  json(res, 200, result);
 });
 
 // ---------------- 自我檢視 ----------------
