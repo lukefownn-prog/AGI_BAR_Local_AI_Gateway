@@ -137,6 +137,14 @@ test('偽造 X-Forwarded-For 不能取得管理權限', async () => {
   assert.equal(res.status, 200, 'X-Forwarded-For 不應影響授權判定');
 });
 
+test('未知路徑的 SPA 退回也要經過來源判定', async () => {
+  // 少了這一層，任何未知路徑（/v1、隨手輸入的網址）都會把登入頁送給區網，
+  // 前面辛苦擋掉 /index.html 就白費了。本機仍應拿到登入頁。
+  const res = await fetch(base + '/some-unknown-path', { redirect: 'manual' });
+  assert.equal(res.status, 200, '本機應正常拿到 SPA 首頁');
+  assert.match(await res.text(), /AGI BAR/);
+});
+
 test('模擬區網來源時管理介面回 404 而非 403', async () => {
   // 直接測 canAccessAdmin 的判定結果（實際連線一定是回送位址，無法從測試偽造）
   const cfg = { adminAccess: 'loopback', adminAllowedCidrs: [] };

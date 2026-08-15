@@ -27,6 +27,7 @@ import { openaiRouter } from './routes/openai.mjs';
 import { anthropicRouter, anthropicModelList, requireApiKey } from './routes/anthropic.mjs';
 import { anthropicErrorType } from './services/anthropic-compat.mjs';
 import { serveStatic } from './routes/static.mjs';
+import { lanAddresses, primaryLanAddress } from './core/net.mjs';
 import { isAdminSurface, isAdminAsset, canAccessAdmin, normalizeIp } from './services/access.mjs';
 
 export const VERSION = '1.2.0';
@@ -119,7 +120,17 @@ export async function createServer(bootConfig) {
 
       // 未知的 /v1 路徑要回 OpenAI 風格錯誤，客戶端才看得懂
       if (isApiPath) throw new HttpError(404, 'unknown_endpoint', `不支援的 API 路徑：${pathname}`);
-      if (req.method === 'GET') return serveStatic(req, res, '/index.html') || res.writeHead(404).end('Not Found');
+
+      if (req.method === 'GET') {
+        // SPA 退回首頁時也要經過管理介面的來源判定。少了這一層，任何未知路徑
+        // （例如有人直接打 /v1 或隨手輸入的網址）都會把登入頁送給區網 ——
+        // 前面辛苦擋掉 /index.html 就白費了。
+        if (!canAccessAdmin(req.socket?.remoteAddress, config.security)) {
+          res.writeHead(302, { Location: '/chat.html' });
+          return res.end();
+        }
+        return serveStatic(req, res, '/index.html') || res.writeHead(404).end('Not Found');
+      }
       throw new HttpError(404, 'not_found', '找不到資源');
     } catch (err) {
       const status = err.status || 500;
@@ -151,17 +162,6 @@ export async function createServer(bootConfig) {
   server.headersTimeout = 60000;
   server.keepAliveTimeout = 65000;
   return server;
-}
-
-/** 本機的對外 IPv4 位址，用來告訴管理員該把哪個網址給人員。 */
-function lanAddresses() {
-  const out = [];
-  for (const list of Object.values(os.networkInterfaces())) {
-    for (const ni of list ?? []) {
-      if (ni.family === 'IPv4' && !ni.internal) out.push(ni.address);
-    }
-  }
-  return out;
 }
 
 function openBrowser(url) {
@@ -247,15 +247,27 @@ export async function main() {
   console.log('  ╚══════════════════════════════════════════════════════╝');
   console.log('');
   const adminLoopbackOnly = (config.security?.adminAccess ?? 'loopback') !== 'lan';
-  const lanIps = lanAddresses();
-  const lanBase = lanIps.length ? `http://${lanIps[0]}:${boundPort}` : null;
+  const lanIp = primaryLanAddress();
+  const lanBase = lanIp ? `http://${lanIp}:${boundPort}` : localUrl;
+  const others = lanAddresses().filter((a) => a.address !== lanIp);
 
   console.log(`   Web 管理介面 : ${localUrl}${adminLoopbackOnly ? '   （僅限本機）' : ''}`);
   console.log(`   資料庫       : ${paths.db}`);
   console.log('');
-  console.log('   給人員的位址：');
-  console.log(`     API Base URL : ${lanBase ? lanBase + '/v1' : localUrl + '/v1'}`);
-  console.log(`     網頁聊天     : ${lanBase ? lanBase + '/chat.html' : localUrl + '/chat.html'}`);
+  console.log('   給人員的位址（手機／其他電腦用這個，不是 localhost）：');
+  console.log(`     網頁聊天     : ${lanBase}/chat.html`);
+  console.log(`     API Base URL : ${lanBase}/v1`);
+  if (others.length) {
+    console.log('');
+    console.log('     本機還有其他位址，若上面那個連不到可改試：');
+    for (const a of others) {
+      console.log(`       http://${a.address}:${boundPort}   （${a.name}${a.virtual ? '，虛擬介面，多半不通' : ''}）`);
+    }
+  }
+  console.log('');
+  console.log('     手機或其他電腦連不到的話，多半是 Windows 防火牆沒放行。');
+  console.log('     以系統管理員身分開 PowerShell 執行：');
+  console.log(`       New-NetFirewallRule -DisplayName "AGI BAR" -Direction Inbound -LocalPort ${boundPort} -Protocol TCP -Action Allow -Profile Private`);
   if (adminLoopbackOnly) {
     console.log('');
     console.log('   管理台已限制為本機存取：區網人員連 / 會被導向聊天頁，');

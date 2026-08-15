@@ -15,6 +15,7 @@ import * as quota from '../services/quota.mjs';
 import { queue } from '../services/queue.mjs';
 import { urlFetch } from '../services/websafe.mjs';
 import { createBackup, listBackups } from '../services/backup.mjs';
+import { lanUrls as netLanUrls } from '../core/net.mjs';
 
 export const adminRouter = new Router();
 
@@ -128,20 +129,10 @@ adminRouter.get('/api/dashboard', async (req, res, ctx) => {
       memTotalMb: Math.round(os.totalmem() / 1048576),
       nodeVersion: process.version,
       port: config.server.port,
-      lanUrls: lanUrls(config.server.port),
+      lanUrls: netLanUrls(config.server.port).map((a) => a.url),
     },
   });
 });
-
-function lanUrls(port) {
-  const out = [];
-  for (const list of Object.values(os.networkInterfaces())) {
-    for (const ni of list ?? []) {
-      if (ni.family === 'IPv4' && !ni.internal) out.push(`http://${ni.address}:${port}`);
-    }
-  }
-  return out;
-}
 
 // ---------------- 人員 ----------------
 
