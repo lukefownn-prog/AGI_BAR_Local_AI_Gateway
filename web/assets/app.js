@@ -616,10 +616,7 @@ async function renderModels() {
         </table>
       </div>
     </div>
-    <div class="alert warn small">
-      <b>外部雲端模型注意：</b>啟用外部模型後，送出的 Prompt 會離開本機網路。
-      依規畫書原則，本地開源模型優先，外部 API 僅作為管理員明確授權的備援路由。
-    </div>`;
+    ${modelGuideHtml()}`;
 
   mountDefaultRouteEditor(document.getElementById('routeEditor'), defaultRoute, models);
 
@@ -657,6 +654,126 @@ async function renderModels() {
       modelCache = []; toast('ok', '已移除'); renderModels();
     } catch (e) { toast('error', e.message); }
   }));
+}
+
+/**
+ * 頁面下方的新增流程說明。
+ *
+ * 放在這裡而不是只寫在文件裡，是因為管理員會產生疑問的時間點就是在這一頁 ——
+ * 「探索」按鈕假設你已經知道要先在推理服務裡裝好模型，但那正是最常卡住的一步。
+ */
+function modelGuideHtml() {
+  const step = (n, text) => `<div style="display:flex;gap:10px;margin-bottom:6px">
+    <span class="tag info" style="flex-shrink:0">${n}</span><div>${text}</div></div>`;
+  const code = (s) => `<div class="keybox" style="margin:6px 0;font-size:12px">${esc(s)}</div>`;
+
+  const section = (title, badge, body) => `
+    <details style="border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:10px">
+      <summary style="cursor:pointer;font-weight:600">
+        ${esc(title)}　<span class="tag ${badge.cls}">${esc(badge.text)}</span>
+      </summary>
+      <div class="mt">${body}</div>
+    </details>`;
+
+  return `
+    <div class="panel">
+      <header><h3>怎麼新增模型</h3></header>
+      <div class="body">
+        <div class="alert info small">
+          <b>共通觀念：AGI BAR 不執行推論，也不存放模型檔。</b>
+          真正跑模型的是下面這些推理服務，AGI BAR 只負責驗證、配額、排隊與路由。<br>
+          所以流程一律是<b>兩步</b>：① 把模型裝進推理服務 → ② 回到這一頁註冊它的端點。<br>
+          直接把 GGUF 檔丟進專案的 <span class="mono">models/</span> 資料夾<b>不會有任何作用</b>。
+        </div>
+
+        ${section('Ollama', { cls: 'ok', text: '最簡單' }, `
+          ${step(1, '安裝 Ollama 後它會自動在背景執行，預設監聽 <span class="mono">11434</span>。')}
+          ${step(2, '下載模型（在 AI 主機的命令列執行）：')}
+          ${code('ollama pull qwen2.5:7b')}
+          <div class="small muted">也可以直接拉 Hugging Face 上的 GGUF：<br>
+            <span class="mono">ollama pull hf.co/Qwen/Qwen3-8B-GGUF:Q5_0</span></div>
+          ${step(3, '確認裝好了：<span class="mono">ollama list</span>')}
+          ${step(4, '回到本頁按「＋ 新增模型」→ 點 <b>Ollama</b> → <b>探索</b> → 勾選要用的模型 → <b>加入</b>。')}
+          <div class="alert warn small mt">
+            <b>第一次呼叫會等很久</b>（實測約 60 秒）—— 那是 Ollama 把模型載進 VRAM 的時間，之後就正常。
+            要避免的話，先在主機跑一次 <span class="mono">ollama run &lt;模型&gt;</span> 預熱。
+          </div>
+          <div class="small muted mt">
+            模型存在 <span class="mono">%USERPROFILE%\\.ollama\\models</span>（可用
+            <span class="mono">OLLAMA_MODELS</span> 環境變數改），以內容定址的 blob 保存，不是可搬動的 GGUF 檔。
+          </div>`)}
+
+        ${section('LM Studio', { cls: 'info', text: '有圖形介面' }, `
+          ${step(1, '在 LM Studio 的 <b>Discover</b> 分頁搜尋並下載模型。')}
+          ${step(2, '切到 <b>Developer</b>（舊版是 <b>Local Server</b>）分頁，按 <b>Start Server</b>，預設埠 <span class="mono">1234</span>。')}
+          ${step(3, '回到本頁按「＋ 新增模型」→ 點 <b>LM Studio</b> → <b>探索</b>。')}
+          <div class="alert warn small mt">
+            <b>沒按 Start Server 就探索不到。</b> LM Studio 的模型下載完並不會自動對外提供 API，
+            一定要手動啟動伺服器。另外模型需要載入記憶體才能回應，
+            建議在設定中開啟 JIT loading，否則第一次呼叫可能失敗而不是等待。
+          </div>`)}
+
+        ${section('llama.cpp server', { cls: '', text: '最省資源' }, `
+          ${step(1, '下載或自行編譯 llama.cpp 的 <span class="mono">llama-server</span>。')}
+          ${step(2, '準備 GGUF 模型檔。<b>這是唯一會用到專案 <span class="mono">models/</span> 資料夾的情況</b> —— 把 GGUF 放在那裡方便管理。')}
+          ${step(3, '啟動伺服器（一個行程通常只服務一個模型）：')}
+          ${code('llama-server -m models\\qwen2.5-7b-instruct-q4_k_m.gguf -c 32768 --host 127.0.0.1 --port 8080')}
+          ${step(4, '回到本頁 →「＋ 新增模型」→ 點 <b>llama.cpp server</b> → <b>探索</b>。')}
+          <div class="small muted mt">
+            要同時提供多個模型，就開多個行程用不同的埠（8080、8081…），
+            每個都在本頁各自新增一次，再到上方「預設模型順序」排出主力與備援。
+          </div>`)}
+
+        ${section('vLLM', { cls: '', text: '多人高吞吐' }, `
+          ${step(1, '在有 NVIDIA GPU 的機器上安裝 vLLM（一般是 Linux 環境）。')}
+          ${step(2, '啟動服務：')}
+          ${code('vllm serve Qwen/Qwen2.5-7B-Instruct --port 8000')}
+          ${step(3, '回到本頁 →「＋ 新增模型」→ 點 <b>vLLM</b> → <b>探索</b>。')}
+          <div class="alert info small mt">
+            <b>若 vLLM 跑在另一台機器</b>，端點要改成那台的位址
+            （例如 <span class="mono">http://192.168.1.20:8000/v1</span>），
+            不能用 <span class="mono">localhost</span>。同時確認那台的防火牆有放行該埠。
+          </div>
+          <div class="small muted mt">
+            vLLM 的批次處理能力較強，人數多時吞吐量明顯優於 Ollama，
+            但啟動較慢且記憶體佔用較高。
+          </div>`)}
+
+        ${section('外部雲端 API（DeepSeek 等）', { cls: 'warn', text: '需明確授權' }, `
+          <div class="alert warn small">
+            <b>啟用外部模型等同同意把該路由的 Prompt 送出本機網路。</b>
+            規畫書的原則是本地開源模型優先，外部 API 只作為管理員明確授權的備援。
+            請先確認符合公司政策。
+          </div>
+          ${step(1, '在 <b>AI 主機</b>設定金鑰環境變數。金鑰不寫進設定檔：')}
+          ${code('setx DEEPSEEK_API_KEY "sk-你的金鑰"')}
+          ${step(2, '<b>完全關閉 AGI BAR 再重新啟動。</b> <span class="mono">setx</span> 只對之後新開的行程生效，重新整理網頁沒有用。')}
+          ${step(3, '按「＋ 新增模型」→ 展開最下方的 <b>手動新增（外部雲端 API）</b>，填入：')}
+          <table class="mt" style="font-size:12px">
+            <tr><th style="width:140px">模型代號</th><td class="mono">cloud-deepseek</td></tr>
+            <tr><th>端點網址</th><td class="mono">https://api.deepseek.com/v1</td></tr>
+            <tr><th>上游模型名稱</th><td class="mono">deepseek-chat</td></tr>
+            <tr><th>金鑰環境變數</th><td class="mono">DEEPSEEK_API_KEY</td><td class="small muted">填變數名稱，不是金鑰本身</td></tr>
+            <tr><th>來源</th><td>外部雲端</td></tr>
+          </table>
+          ${step(4, '按「立即健康檢查」確認狀態：')}
+          <table style="font-size:12px">
+            <tr><td><span class="tag ok">線上</span></td><td>完成</td></tr>
+            <tr><td><span class="tag danger">缺少環境變數…</span></td><td>服務還沒讀到新的環境變數 → 重啟 AGI BAR</td></tr>
+            <tr><td><span class="tag danger">HTTP 401</span></td><td>金鑰本身無效或已失效</td></tr>
+          </table>
+          ${step(5, '決定它在路由中的位置。<b>外部模型加入後預設不進路由</b> —— 要不要用是你的明確決定。')}
+          <div class="small muted">
+            想讓全體人員在本地模型全掛時才用它：到本頁上方「預設模型順序」把它加到<b>最後一順位</b>。<br>
+            只給特定人員：到「人員 → 管理」設定該人員的專屬順序。
+          </div>`)}
+
+        <p class="small muted mb0">
+          新增完記得到本頁上方的<b>預設模型順序</b>確認主力與備援的排序 ——
+          沒有排進順序的模型不會被任何請求選到。
+        </p>
+      </div>
+    </div>`;
 }
 
 /**
