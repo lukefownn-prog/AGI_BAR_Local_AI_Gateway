@@ -223,6 +223,24 @@ adminRouter.delete('/api/keys/:id', async (req, res, ctx) => {
   json(res, 200, { ok: true });
 });
 
+/**
+ * 目前可用的對外位址。每次呼叫都重新偵測 ——
+ * 筆電換 Wi-Fi、插拔網路線、DHCP 續約都會換 IP，快取住只會給出過期的網址。
+ */
+adminRouter.get('/api/network', async (req, res, ctx) => {
+  sessions.requireAdmin(req);
+  const port = ctx.config.server.port;
+  const addresses = netLanUrls(port);
+  const primary = addresses.find((a) => !a.virtual) ?? addresses[0] ?? null;
+  json(res, 200, {
+    port,
+    detectedAt: new Date().toISOString(),
+    primary: primary?.address ?? null,
+    addresses,
+    hostname: os.hostname(),
+  });
+});
+
 // ---------------- 模型與路由 ----------------
 
 adminRouter.get('/api/models', async (req, res) => {

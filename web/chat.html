@@ -2,7 +2,8 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- viewport-fit=cover 讓 env(safe-area-inset-*) 生效，避開瀏海與 home indicator -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>AGI BAR - 網頁聊天</title>
   <link rel="stylesheet" href="/assets/app.css">
   <link rel="stylesheet" href="/assets/chat.css">
@@ -12,10 +13,12 @@
     <header class="chat-top">
       <b>AGI BAR</b>
       <span class="muted small" id="whoLabel">尚未連線</span>
-      <div style="flex:1"></div>
+      <div class="spacer" style="flex:1"></div>
       <span class="tag" id="quotaTag" hidden></span>
-      <button class="sm" id="keyBtn">API Key</button>
-      <button class="sm" id="clearBtn">清除對話</button>
+      <div class="actions">
+        <button class="sm" id="keyBtn">API Key</button>
+        <button class="sm" id="clearBtn">清除對話</button>
+      </div>
     </header>
 
     <main class="chat-body" id="messages">

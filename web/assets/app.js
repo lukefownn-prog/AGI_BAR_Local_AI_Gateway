@@ -518,13 +518,9 @@ function readRoutePicker(host) { return host._chain ?? []; }
 // ================= API Key 總表 =================
 
 async function renderKeys() {
-  const { keys } = await api('/api/keys');
+  const [{ keys }, net] = await Promise.all([api('/api/keys'), api('/api/network')]);
   content.innerHTML = `
-    <div class="alert info small">
-      API Base URL：<span class="mono">${esc(location.origin)}/v1</span>　—
-      任何支援自訂 Base URL 與 API Key 的 OpenAI 相容客戶端皆可連接（Cursor / Claude Code / Codex / 自製 App）。
-      詳細設定請見 <span class="mono">docs/整合設定.md</span>。
-    </div>
+    <div class="panel" id="netPanel"></div>
     <div class="panel">
       <header><h3>所有 API Key</h3></header>
       <div class="body flush table-scroll">
@@ -551,6 +547,119 @@ async function renderKeys() {
         </table>
       </div>
     </div>`;
+
+  renderNetworkPanel(document.getElementById('netPanel'), net);
+}
+
+const ADDR_PREF = 'agibar_preferred_address';
+
+/**
+ * 連線資訊面板。
+ *
+ * 存在的理由：管理員要把網址給人員，但這台機器可能有好幾個 IP
+ * （Wi-Fi、有線、WSL、Hyper-V），而且換個網路環境就會變。
+ * 每次進來重新偵測，並讓管理員自己挑一個，避免把虛擬網卡的位址發出去。
+ */
+function renderNetworkPanel(host, net) {
+  const saved = localStorage.getItem(ADDR_PREF);
+  const chosen = net.addresses.find((a) => a.address === saved) ?? net.addresses.find((a) => !a.virtual) ?? net.addresses[0];
+
+  if (!chosen) {
+    host.innerHTML = `
+      <header><h3>連線資訊</h3><button class="sm" id="redetectBtn">重新偵測</button></header>
+      <div class="body"><div class="alert warn">偵測不到任何對外網路位址。這台機器可能沒有連上網路。</div></div>`;
+    host.querySelector('#redetectBtn').addEventListener('click', () => renderKeys());
+    return;
+  }
+
+  const base = chosen.url;
+  const rows = [
+    { label: '網頁聊天（給人員開）', url: `${base}/chat.html`,
+      hint: '手機、平板、其他電腦都用這個。管理台不在這個網址上。' },
+    { label: 'API Base URL', url: `${base}/v1`,
+      hint: 'Cursor / Codex / 自製 App 填這個（Claude Code 例外，見下方）。' },
+    { label: 'Claude Code 用', url: base,
+      hint: 'ANTHROPIC_BASE_URL 不加 /v1，SDK 會自己補。' },
+  ];
+
+  host.innerHTML = `
+    <header>
+      <h3>連線資訊　<span class="muted small">給人員的網址</span></h3>
+      <button class="primary" id="redetectBtn">重新偵測 IP</button>
+    </header>
+    <div class="body">
+      ${net.addresses.length > 1 ? `
+        <label class="field"><span>要使用哪個位址？這台機器偵測到 ${net.addresses.length} 個</span>
+          <select id="addrPick">
+            ${net.addresses.map((a) => `
+              <option value="${esc(a.address)}" ${a.address === chosen.address ? 'selected' : ''}>
+                ${esc(a.address)} — ${esc(a.name)}${a.virtual ? '（虛擬介面，其他裝置多半連不到）' : ''}
+              </option>`).join('')}
+          </select>
+        </label>` : ''}
+      ${chosen.virtual ? `
+        <div class="alert warn small">
+          目前選的是<b>虛擬介面</b>的位址，手機與其他電腦多半連不到。
+          若清單中有 Wi-Fi 或乙太網路的位址，請改選那一個。
+        </div>` : ''}
+
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th style="width:190px">用途</th><th>網址</th><th style="width:80px"></th></tr></thead>
+          <tbody>
+            ${rows.map((r, i) => `
+              <tr>
+                <td>${esc(r.label)}<div class="small muted">${esc(r.hint)}</div></td>
+                <td class="mono" style="word-break:break-all">${esc(r.url)}</td>
+                <td class="right"><button class="sm" data-copy="${i}">複製</button></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="btn-row mt">
+        <button id="copyAllBtn">複製整份設定說明</button>
+        <a class="btn" href="${esc(base)}/chat.html" target="_blank">開啟聊天頁 ↗</a>
+      </div>
+      <p class="small muted mt mb0">
+        主機 ${esc(net.hostname)}　連接埠 ${net.port}　偵測時間 ${fmtTime(net.detectedAt)}
+        <br>換了 Wi-Fi 或網路環境之後 IP 會變，記得回來按「重新偵測 IP」並重新發給人員。
+      </p>
+    </div>`;
+
+  const copy = async (text, label) => {
+    try { await navigator.clipboard.writeText(text); toast('ok', `已複製${label}`); }
+    catch { toast('warn', '瀏覽器拒絕存取剪貼簿，請手動選取複製'); }
+  };
+
+  host.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', () => {
+    copy(rows[Number(b.dataset.copy)].url, rows[Number(b.dataset.copy)].label);
+  }));
+
+  host.querySelector('#copyAllBtn').addEventListener('click', () => {
+    copy([
+      'AGI BAR 連線資訊',
+      '',
+      `網頁聊天：${base}/chat.html`,
+      `API Base URL：${base}/v1`,
+      '',
+      'Cursor：Settings → Models → 勾選 Override OpenAI Base URL，填上面的 API Base URL',
+      'Codex：OPENAI_BASE_URL 設為上面的 API Base URL；~/.codex/config.toml 需加 wire_api = "chat"',
+      `Claude Code：ANTHROPIC_BASE_URL=${base}（不加 /v1）`,
+      '',
+      'API Key 由管理員個別配發，請勿轉發給他人。',
+    ].join('\n'), '設定說明');
+  });
+
+  host.querySelector('#redetectBtn').addEventListener('click', (e) => {
+    e.target.disabled = true;
+    renderKeys();
+  });
+
+  host.querySelector('#addrPick')?.addEventListener('change', (e) => {
+    localStorage.setItem(ADDR_PREF, e.target.value);
+    renderKeys();
+  });
 }
 
 // ================= AI 模型 =================
