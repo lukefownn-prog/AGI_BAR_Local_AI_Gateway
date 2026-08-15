@@ -107,12 +107,35 @@ export function modal({ title, bodyHtml, footerHtml = '', onMount, width }) {
     </div>`);
   host.appendChild(node);
 
-  const close = () => node.remove();
+  function onEsc(e) {
+    if (e.key === 'Escape') close();
+  }
+
+  const close = () => {
+    node.remove();
+    // 不論是哪一種方式關閉都要解除，否則每開一次對話框就在 document 上留一個監聽器
+    document.removeEventListener('keydown', onEsc);
+  };
+
   node.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', close));
-  node.addEventListener('click', (e) => { if (e.target === node) close(); });
-  document.addEventListener('keydown', function onEsc(e) {
-    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onEsc); }
+
+  /**
+   * 點遮罩關閉 —— 但「按下」與「放開」必須都在遮罩上。
+   *
+   * 不能只看 click 的 target：click 事件的 target 是 mousedown 與 mouseup
+   * 兩個目標的**最近共同祖先**。使用者在輸入框裡按住往外拖曳選字、放開在對話框外時，
+   * 共同祖先剛好就是遮罩，於是 e.target === node 成立 —— 只是想把數字框起來重打，
+   * 整個對話框卻關掉，已經填好的欄位全部消失。用鍵盤刪除不碰滑鼠，所以不會踩到，
+   * 這也是為什麼它看起來像「有時候會關、有時候不會」。
+   */
+  let pressedOnBackdrop = false;
+  node.addEventListener('pointerdown', (e) => { pressedOnBackdrop = e.target === node; });
+  node.addEventListener('pointerup', (e) => {
+    if (pressedOnBackdrop && e.target === node) close();
+    pressedOnBackdrop = false;
   });
+
+  document.addEventListener('keydown', onEsc);
 
   onMount?.(node, close);
   return { node, close };
