@@ -82,10 +82,35 @@ Claude Code 走的是 Anthropic 格式，本地模型幾乎只講 OpenAI 格式�
 
 啟動橫幅改為分別列出「管理介面（僅限本機）」與「給人員的位址」。
 
+**管理台可直接新增本地模型（M18）**
+
+原本要新增模型得手動編輯 `config/config.json` 再重啟 —— 這違反規畫書 §4
+「一般網店後台模式，避免做成工程師伺服器控制台」。
+
+「AI 模型」頁新增 **＋ 新增模型**：填端點 → 探索 → 勾選 → 加入，立即生效不需重啟。
+
+- `POST /api/models/discover` 列出端點上已安裝的模型
+- `GET /api/models/presets` 提供 Ollama / LM Studio / llama.cpp / vLLM 的預設端點
+- `POST /api/models`、`DELETE /api/models/:id`
+- 模型代號由上游名稱自動產生（`hf.co/Qwen/Qwen3-8B-GGUF:Q5_0` →
+  `hf-co-qwen-qwen3-8b-gguf-q5-0`），可再修改
+- 新增的模型會自動排進預設路由 —— 沒進路由的話模型雖然存在卻不會被任何請求選到
+- 移除時一併從設定檔、預設路由與各人員路由中清掉
+
+寫回 `config.json` 再重新同步，設定檔仍是唯一來源；只寫資料庫的話下次重啟會被覆蓋。
+
+已對真實 Ollama 實測：探索兩個模型、加入、健康檢查 online、實際對話成功。
+
 ### 修正
 - `config.example.json` 的 `limits.defaultUserLimits.tokensPerRequest`：8192 → 32768
+- **測試環境隔離**。`tests/access.test.mjs` 靜態 import 了 server 模組，
+  而 ESM 會先求值所有 import 才執行頂層敘述，導致 `core/paths.mjs` 在
+  `AGIBAR_DATA_DIR` 設定前就固定路徑 —— 測試其實是跑在**正式資料庫**上，
+  而且不會變紅，只會在某天弄髒或鎖住正式資料時才被發現。
+  新增 `tests/helpers/isolate.mjs`（必須是第一個 import）與 `assertIsolated()`，
+  讓這類錯誤變成明確的失敗。已驗證跑完整套測試後正式資料庫的 mtime 未變。
 
-- 測試從 86 項增加到 140 項
+- 測試從 86 項增加到 154 項
 
 ### 待辦
 - M11 各客戶端的實機點擊驗證（API 層面已全數通過，Issue #1）

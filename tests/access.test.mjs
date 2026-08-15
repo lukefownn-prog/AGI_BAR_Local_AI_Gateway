@@ -3,11 +3,10 @@
  *
  * 這是安全邊界，斷言要寫死：任何放寬都應該讓測試失敗，而不是靜靜通過。
  */
+// isolate 必須排在所有 server 模組之前 —— 見該檔的說明
+import { writeTestConfig, assertIsolated, cleanupTmp } from './helpers/isolate.mjs';
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import {
   isAdminSurface, isAdminAsset, canAccessAdmin, isLoopback, normalizeIp,
 } from '../server/services/access.mjs';
@@ -90,34 +89,20 @@ test('adminAccess=lan 才開放全網段', () => {
 
 // ---------------- 端對端 ----------------
 
-let server, base, mock, tmp;
+let server, base, mock;
 
 before(async () => {
-  tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'agibar-access-'));
-  process.env.AGIBAR_DATA_DIR = path.join(tmp, 'data');
-  process.env.AGIBAR_CONFIG_FILE = path.join(tmp, 'config.json');
-  process.env.AGIBAR_NO_BROWSER = '1';
-
+  await assertIsolated();
   mock = await startMockModel({ name: 'access-model' });
 
-  const cfg = JSON.parse(
-    fs.readFileSync(new URL('../config/config.example.json', import.meta.url), 'utf8')
-      .replace(/^\s*\/\/.*$/gm, ''),
-  );
-  delete cfg.$schema;
-  cfg.server.port = 0;
-  cfg.server.openBrowserOnStart = false;
-  cfg.backup.enabled = false;
-  cfg.logging.toFile = false;
-  cfg.logging.level = 'error';
-  cfg.models.healthCheckIntervalMs = 3600000;
-  cfg.models.catalog = [{
-    id: 'm1', displayName: 'M1', endpoint: mock.endpoint, model: 'access-model',
-    enabled: true, isLocal: true, contextWindow: 8192, vramMb: 1000,
-  }];
-  cfg.models.defaultRoute = ['m1'];
-  cfg.security.adminAccess = 'loopback';
-  fs.writeFileSync(process.env.AGIBAR_CONFIG_FILE, JSON.stringify(cfg, null, 2));
+  writeTestConfig((cfg) => {
+    cfg.models.catalog = [{
+      id: 'm1', displayName: 'M1', endpoint: mock.endpoint, model: 'access-model',
+      enabled: true, isLocal: true, contextWindow: 8192, vramMb: 1000,
+    }];
+    cfg.models.defaultRoute = ['m1'];
+    cfg.security.adminAccess = 'loopback';
+  });
 
   const { main } = await import('../server/index.mjs');
   server = await main();
@@ -129,7 +114,7 @@ after(async () => {
   await mock?.close();
   const { closeDb } = await import('../server/core/db.mjs');
   closeDb();
-  try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* Windows 檔案鎖 */ }
+  cleanupTmp();
 });
 
 test('本機可以存取管理台', async () => {

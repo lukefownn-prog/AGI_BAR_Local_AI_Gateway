@@ -50,6 +50,146 @@ export function getModel(id) {
   return get('SELECT * FROM models WHERE id = ?', [id]);
 }
 
+/**
+ * 向一個 OpenAI 相容端點探索可用模型。
+ *
+ * 給管理台的「新增模型」用：管理員只要填端點（Ollama 是
+ * http://localhost:11434/v1），就能把已安裝的模型列出來勾選，
+ * 不必自己去查模型名稱、也不必手寫設定檔。
+ */
+export async function discoverModels(endpoint, { timeoutMs = 8000, apiKey = null } = {}) {
+  let url;
+  try {
+    url = new URL(`${String(endpoint).replace(/\/+$/, '')}/models`);
+  } catch {
+    throw new HttpError(400, 'invalid_endpoint', '端點網址格式不正確');
+  }
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new HttpError(400, 'invalid_endpoint', '端點只支援 http 或 https');
+  }
+
+  let res;
+  try {
+    res = await fetch(url, {
+      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (err) {
+    throw new HttpError(502, 'endpoint_unreachable',
+      `無法連線到 ${url.origin}：${err?.cause?.code || err.message}。請確認該服務正在執行。`);
+  }
+  if (!res.ok) {
+    throw new HttpError(502, 'endpoint_error', `端點回應 HTTP ${res.status}`);
+  }
+
+  let data;
+  try { data = await res.json(); } catch {
+    throw new HttpError(502, 'endpoint_error', '端點回應不是 JSON，可能不是 OpenAI 相容服務');
+  }
+
+  const list = Array.isArray(data?.data) ? data.data : [];
+  if (!list.length) {
+    throw new HttpError(404, 'no_models', '端點可連線，但沒有回報任何模型');
+  }
+
+  const existing = new Set(listModels().map((m) => m.model_name));
+  return list
+    .filter((m) => typeof m?.id === 'string')
+    .map((m) => ({ model: m.id, suggestedId: slugifyModelId(m.id), alreadyAdded: existing.has(m.id) }));
+}
+
+/** hf.co/Qwen/Qwen3-8B-GGUF:Q5_0 → hf-co-qwen-qwen3-8b-gguf-q5-0 */
+export function slugifyModelId(name) {
+  return String(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || 'model';
+}
+
+const ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
+
+/**
+ * 新增模型到設定檔並立即生效。
+ *
+ * 設定檔仍是唯一來源（syncCatalog 的前提），所以這裡是寫回 config.json
+ * 再重新同步，而不是直接塞資料庫 —— 否則下次重啟就會被設定檔覆蓋掉。
+ */
+export function addModel(input, ctx = {}) {
+  const { loadConfig, saveConfig } = ctx.configModule;
+  const config = loadConfig();
+
+  const id = String(input.id || '').trim().toLowerCase();
+  if (!ID_PATTERN.test(id)) {
+    throw new HttpError(400, 'invalid_id', '模型代號需為英數字、點、底線或連字號開頭的 1-64 字元');
+  }
+  if ((config.models?.catalog ?? []).some((m) => m.id === id)) {
+    throw new HttpError(409, 'id_taken', `模型代號 ${id} 已存在`);
+  }
+  if (!String(input.endpoint || '').trim()) {
+    throw new HttpError(400, 'missing_endpoint', '請填寫端點網址');
+  }
+  if (!String(input.model || '').trim()) {
+    throw new HttpError(400, 'missing_model', '請填寫上游模型名稱');
+  }
+
+  const entry = {
+    id,
+    displayName: String(input.displayName || id).trim(),
+    provider: 'openai-compatible',
+    endpoint: String(input.endpoint).trim().replace(/\/+$/, ''),
+    model: String(input.model).trim(),
+    apiKeyEnv: String(input.apiKeyEnv || '').trim(),
+    enabled: input.enabled !== false,
+    isLocal: input.isLocal !== false,
+    capabilities: ['chat', 'stream'],
+    contextWindow: Number(input.contextWindow) || 8192,
+    vramMb: Number(input.vramMb) || 0,
+  };
+
+  const catalog = [...(config.models?.catalog ?? []), entry];
+  const patch = { models: { catalog } };
+
+  // 不加進預設路由的話，模型雖然存在卻不會被任何請求選到 ——
+  // 管理員多半會困惑「加了為什麼沒用」。預設加在最後一順位。
+  if (input.addToDefaultRoute !== false && entry.enabled) {
+    const route = [...(config.models?.defaultRoute ?? [])];
+    if (!route.includes(id)) route.push(id);
+    patch.models.defaultRoute = route;
+  }
+
+  saveConfig(patch);
+  syncCatalog(loadConfig());
+  audit(ctx.actorId, 'model.add', `model:${id}`, { endpoint: entry.endpoint, model: entry.model }, ctx.clientIp);
+  log.info('新增模型', { id, endpoint: entry.endpoint, model: entry.model });
+  return getModel(id);
+}
+
+/** 從設定檔移除模型。歷史紀錄照留，只是不再出現在清單與路由中。 */
+export function removeModel(id, ctx = {}) {
+  const { loadConfig, saveConfig } = ctx.configModule;
+  const config = loadConfig();
+
+  const catalog = (config.models?.catalog ?? []).filter((m) => m.id !== id);
+  if (catalog.length === (config.models?.catalog ?? []).length) {
+    throw new HttpError(404, 'model_not_found', '設定檔中找不到這個模型');
+  }
+
+  saveConfig({
+    models: {
+      catalog,
+      defaultRoute: (config.models?.defaultRoute ?? []).filter((r) => r !== id),
+    },
+  });
+  syncCatalog(loadConfig());
+  run('DELETE FROM model_routes WHERE model_id = ?', [id]);
+  run('DELETE FROM models WHERE id = ?', [id]);
+
+  audit(ctx.actorId, 'model.remove', `model:${id}`, '', ctx.clientIp);
+  log.warn('移除模型', { id });
+  return true;
+}
+
 export function setModelEnabled(id, enabled, ctx = {}) {
   const m = getModel(id);
   if (!m) throw new HttpError(404, 'model_not_found', '找不到模型');

@@ -2,45 +2,31 @@
  * 端對端測試：涵蓋 V1 驗收標準的主要條目（規畫書 14）。
  * 每次執行使用獨立的暫存 data/ 與 config，不會動到正式資料。
  */
+// isolate 必須排在所有 server 模組之前 —— 見該檔的說明
+import { assertIsolated, writeTestConfig, cleanupTmp } from './helpers/isolate.mjs';
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import { startMockModel } from './helpers/mock-model.mjs';
-
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'agibar-test-'));
-process.env.AGIBAR_DATA_DIR = path.join(tmp, 'data');
-process.env.AGIBAR_CONFIG_FILE = path.join(tmp, 'config.json');
-process.env.AGIBAR_NO_BROWSER = '1';
 
 let primary, secondary, server, base, cookie = '';
 let ADMIN_PW = 'test-admin-password';
 
 before(async () => {
+  await assertIsolated();
   primary = await startMockModel({ name: 'primary' });
   secondary = await startMockModel({ name: 'secondary' });
 
-  const example = JSON.parse(
-    fs.readFileSync(new URL('../config/config.example.json', import.meta.url), 'utf8')
-      .replace(/^\s*\/\/.*$/gm, ''),
-  );
-  delete example.$schema;
-  example.server.port = 0;
-  example.server.openBrowserOnStart = false;
-  example.admin.initialPassword = ADMIN_PW;
-  example.backup.enabled = false;
-  example.logging.toFile = false;
-  example.models.healthCheckIntervalMs = 3600000; // 測試中不自動輪詢
-  example.models.catalog = [
-    { id: 'local-primary', displayName: '主力', provider: 'openai-compatible', endpoint: primary.endpoint, model: 'primary', enabled: true, isLocal: true, contextWindow: 8192, vramMb: 8000 },
-    { id: 'local-secondary', displayName: '備援', provider: 'openai-compatible', endpoint: secondary.endpoint, model: 'secondary', enabled: true, isLocal: true, contextWindow: 4096, vramMb: 4000 },
-  ];
-  example.models.defaultRoute = ['local-primary', 'local-secondary'];
-  example.limits.defaultUserLimits.dailyWindowStart = '00:00';
-  example.limits.defaultUserLimits.dailyWindowEnd = '23:59';
-  example.limits.defaultUserLimits.weekdays = [0, 1, 2, 3, 4, 5, 6];
-  fs.writeFileSync(process.env.AGIBAR_CONFIG_FILE, JSON.stringify(example, null, 2));
+  writeTestConfig((cfg) => {
+    cfg.admin.initialPassword = ADMIN_PW;
+    cfg.models.catalog = [
+      { id: 'local-primary', displayName: '主力', provider: 'openai-compatible', endpoint: primary.endpoint, model: 'primary', enabled: true, isLocal: true, contextWindow: 8192, vramMb: 8000 },
+      { id: 'local-secondary', displayName: '備援', provider: 'openai-compatible', endpoint: secondary.endpoint, model: 'secondary', enabled: true, isLocal: true, contextWindow: 4096, vramMb: 4000 },
+    ];
+    cfg.models.defaultRoute = ['local-primary', 'local-secondary'];
+    Object.assign(cfg.limits.defaultUserLimits, {
+      dailyWindowStart: '00:00', dailyWindowEnd: '23:59', weekdays: [0, 1, 2, 3, 4, 5, 6],
+    });
+  });
 
   const { main } = await import('../server/index.mjs');
   server = await main();
@@ -58,7 +44,7 @@ after(async () => {
   await secondary?.close();
   const { closeDb } = await import('../server/core/db.mjs');
   closeDb();
-  try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* Windows 檔案鎖 */ }
+  cleanupTmp();
 });
 
 async function admin(path, { method = 'GET', body } = {}) {

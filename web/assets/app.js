@@ -560,11 +560,16 @@ async function renderModels() {
   modelCache = models;
   content.innerHTML = `
     <div class="alert info small">
-      模型清單來自 <span class="mono">config/config.json</span> 的 <span class="mono">models.catalog</span>。
-      新增模型請編輯設定檔後重新啟動服務；此頁可即時啟用/停用與檢查健康狀態。
+      新增模型後會立即生效，不需重新啟動。設定會寫回
+      <span class="mono">config/config.json</span>，那裡仍是唯一的設定來源。
     </div>
     <div class="panel">
-      <header><h3>模型池</h3><button class="sm" id="hcBtn">立即健康檢查</button></header>
+      <header><h3>模型池</h3>
+        <div class="btn-row">
+          <button class="primary" id="addModelBtn">＋ 新增模型</button>
+          <button class="sm" id="hcBtn">立即健康檢查</button>
+        </div>
+      </header>
       <div class="body flush table-scroll">
         <table>
           <thead><tr>
@@ -580,9 +585,12 @@ async function renderModels() {
               <td class="num">${fmtNum(m.context_window)}</td>
               <td class="num">${m.vram_mb ? fmtNum(m.vram_mb) + ' MB' : '—'}</td>
               <td class="num">${m.queue_depth}</td>
-              <td><button class="sm ${m.enabled ? 'danger' : 'primary'}" data-toggle="${esc(m.id)}" data-on="${m.enabled ? 0 : 1}">
-                ${m.enabled ? '停用' : '啟用'}</button></td>
-            </tr>`).join('')}
+              <td class="nowrap">
+                <button class="sm ${m.enabled ? 'danger' : 'primary'}" data-toggle="${esc(m.id)}" data-on="${m.enabled ? 0 : 1}">
+                  ${m.enabled ? '停用' : '啟用'}</button>
+                <button class="sm danger" data-remove="${esc(m.id)}">移除</button>
+              </td>
+            </tr>`).join('') || '<tr><td colspan="8" class="empty">尚未新增任何模型。按右上角「＋ 新增模型」開始。</td></tr>'}
           </tbody>
         </table>
       </div>
@@ -592,15 +600,143 @@ async function renderModels() {
       依規畫書原則，本地開源模型優先，外部 API 僅作為管理員明確授權的備援路由。
     </div>`;
 
+  document.getElementById('addModelBtn').addEventListener('click', openAddModelDialog);
+
   document.getElementById('hcBtn').addEventListener('click', async () => {
     await api('/api/models/healthcheck', { method: 'POST' }); toast('ok', '健康檢查完成'); renderModels();
   });
+
   content.querySelectorAll('[data-toggle]').forEach((b) => b.addEventListener('click', async () => {
     try {
       await api(`/api/models/${encodeURIComponent(b.dataset.toggle)}`, { method: 'PATCH', body: { enabled: b.dataset.on === '1' } });
       modelCache = []; renderModels();
     } catch (e) { toast('error', e.message); }
   }));
+
+  content.querySelectorAll('[data-remove]').forEach((b) => b.addEventListener('click', async () => {
+    const id = b.dataset.remove;
+    if (!await confirmDialog(`確定從模型池移除「${id}」？`
+      + '該模型會從設定檔與所有人員的路由中刪除，使用紀錄則會保留。')) return;
+    try {
+      await api(`/api/models/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      modelCache = []; toast('ok', '已移除'); renderModels();
+    } catch (e) { toast('error', e.message); }
+  }));
+}
+
+/**
+ * 新增模型：填端點 → 探索 → 勾選 → 加入。
+ * 目的是讓管理員不必知道模型的完整名稱，也不必去編輯設定檔。
+ */
+async function openAddModelDialog() {
+  const { presets } = await api('/api/models/presets');
+
+  modal({
+    title: '新增模型',
+    width: 700,
+    bodyHtml: `
+      <p class="small muted">
+        填入本地推理服務的 OpenAI 相容端點，按「探索」列出已安裝的模型。
+      </p>
+      <label class="field"><span>常用服務</span>
+        <div class="btn-row">
+          ${presets.map((p) => `<button class="sm" data-preset="${esc(p.endpoint)}">${esc(p.name)}<span class="muted small">（${esc(p.hint)}）</span></button>`).join('')}
+        </div>
+      </label>
+      <label class="field"><span>端點網址</span>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="m_endpoint" class="mono" style="flex:1" placeholder="http://localhost:11434/v1">
+          <button class="primary" id="discoverBtn">探索</button>
+        </div>
+      </label>
+      <div id="discoverResult"></div>`,
+    footerHtml: '<button data-close>關閉</button>',
+    onMount: (node, close) => {
+      const endpointInput = node.querySelector('#m_endpoint');
+      const resultBox = node.querySelector('#discoverResult');
+
+      node.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => {
+        endpointInput.value = b.dataset.preset;
+        endpointInput.focus();
+      }));
+
+      const discover = async () => {
+        const endpoint = endpointInput.value.trim();
+        if (!endpoint) return toast('error', '請先填入端點網址');
+        resultBox.innerHTML = '<div class="small muted">探索中…</div>';
+        try {
+          const { models: found } = await api('/api/models/discover', { method: 'POST', body: { endpoint } });
+          renderDiscovered(resultBox, found, endpoint, close);
+        } catch (e) {
+          resultBox.innerHTML = `<div class="alert error">${esc(e.message)}</div>`;
+        }
+      };
+
+      node.querySelector('#discoverBtn').addEventListener('click', discover);
+      endpointInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); discover(); } });
+    },
+  });
+}
+
+function renderDiscovered(box, found, endpoint, closeParent) {
+  const addable = found.filter((f) => !f.alreadyAdded);
+
+  box.innerHTML = `
+    <div class="alert ok small">找到 ${found.length} 個模型${addable.length < found.length
+      ? `（${found.length - addable.length} 個已加入過）` : ''}</div>
+    <div class="table-scroll" style="border:1px solid var(--line);border-radius:8px">
+      <table>
+        <thead><tr><th>上游模型名稱</th><th>顯示名稱</th><th class="num">上下文</th><th class="num">VRAM (MB)</th><th></th></tr></thead>
+        <tbody>${found.map((f, i) => `
+          <tr data-row="${i}">
+            <td class="mono small">${esc(f.model)}</td>
+            <td><input type="text" class="d_name" value="${esc(shortModelName(f.model))}" ${f.alreadyAdded ? 'disabled' : ''}></td>
+            <td><input type="number" class="d_ctx" value="8192" style="width:90px" ${f.alreadyAdded ? 'disabled' : ''}></td>
+            <td><input type="number" class="d_vram" value="8000" style="width:90px" ${f.alreadyAdded ? 'disabled' : ''}></td>
+            <td class="right nowrap">${f.alreadyAdded
+              ? '<span class="tag">已加入</span>'
+              : `<button class="sm primary" data-add="${i}">加入</button>`}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <p class="small muted mt mb0">
+      上下文與 VRAM 只影響儀表板顯示與超額降級時的模型選擇，填個大概即可，之後可再調整。
+      加入的模型會自動排到預設路由的最後一順位。
+    </p>`;
+
+  box.querySelectorAll('[data-add]').forEach((btn) => btn.addEventListener('click', async () => {
+    const i = Number(btn.dataset.add);
+    const row = box.querySelector(`[data-row="${i}"]`);
+    btn.disabled = true;
+    try {
+      await api('/api/models', {
+        method: 'POST',
+        body: {
+          id: found[i].suggestedId,
+          displayName: row.querySelector('.d_name').value.trim() || found[i].suggestedId,
+          endpoint,
+          model: found[i].model,
+          contextWindow: Number(row.querySelector('.d_ctx').value),
+          vramMb: Number(row.querySelector('.d_vram').value),
+          isLocal: true,
+          enabled: true,
+        },
+      });
+      row.querySelector('td:last-child').innerHTML = '<span class="tag ok">已加入</span>';
+      toast('ok', `已新增 ${found[i].model}`);
+      modelCache = [];
+    } catch (e) {
+      btn.disabled = false;
+      toast('error', e.message);
+    }
+  }));
+}
+
+/** hf.co/Qwen/Qwen3-8B-GGUF:Q5_0 → Qwen3-8B-GGUF:Q5_0（顯示名稱不需要前面的來源路徑） */
+function shortModelName(full) {
+  const parts = String(full).split('/');
+  return parts[parts.length - 1] || full;
 }
 
 // ================= 網路（規畫書 9）=================

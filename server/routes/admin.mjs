@@ -250,6 +250,52 @@ adminRouter.post('/api/models/healthcheck', async (req, res, ctx) => {
   json(res, 200, { results: await models.checkAllModels(ctx.config) });
 });
 
+/**
+ * 探索端點上有哪些模型。給「新增模型」用 ——
+ * 管理員填端點就能勾選，不必自己查模型名稱或手寫設定檔。
+ */
+adminRouter.post('/api/models/discover', async (req, res) => {
+  sessions.requireAdmin(req);
+  const body = await readJsonBody(req, 8192);
+  const apiKey = body.apiKeyEnv ? process.env[body.apiKeyEnv] : null;
+  json(res, 200, {
+    endpoint: body.endpoint,
+    models: await models.discoverModels(body.endpoint, { apiKey }),
+  });
+});
+
+/** 常見本地推理服務的端點，讓管理員直接點選而不用背網址。 */
+adminRouter.get('/api/models/presets', async (req, res) => {
+  sessions.requireAdmin(req);
+  json(res, 200, {
+    presets: [
+      { name: 'Ollama', endpoint: 'http://localhost:11434/v1', hint: '預設埠 11434' },
+      { name: 'LM Studio', endpoint: 'http://localhost:1234/v1', hint: '預設埠 1234' },
+      { name: 'llama.cpp server', endpoint: 'http://localhost:8080/v1', hint: '預設埠 8080' },
+      { name: 'vLLM', endpoint: 'http://localhost:8000/v1', hint: '預設埠 8000' },
+    ],
+  });
+});
+
+adminRouter.post('/api/models', async (req, res, ctx) => {
+  const s = sessions.requireAdmin(req);
+  const body = await readJsonBody(req, 65536);
+  const model = models.addModel(body, {
+    ...ctxOf(req, ctx.config, s),
+    configModule: { loadConfig, saveConfig },
+  });
+  json(res, 201, { model });
+});
+
+adminRouter.delete('/api/models/:id', async (req, res, ctx) => {
+  const s = sessions.requireAdmin(req);
+  models.removeModel(ctx.params.id, {
+    ...ctxOf(req, ctx.config, s),
+    configModule: { loadConfig, saveConfig },
+  });
+  json(res, 200, { ok: true });
+});
+
 adminRouter.put('/api/users/:id/route', async (req, res, ctx) => {
   const s = sessions.requireAdmin(req);
   const body = await readJsonBody(req, 8192);
