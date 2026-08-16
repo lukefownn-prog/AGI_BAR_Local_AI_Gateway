@@ -14,7 +14,7 @@
  *  - 未授權一律回 404 而非 403。403 等於告訴對方「這裡有東西，只是你不能進」，
  *    404 則讓管理台看起來根本不存在。
  */
-import { ipInCidr } from './websafe.mjs';
+import { ipInCidr } from '../core/net.mjs';
 
 /** 管理介面的路徑。其餘（/v1、/chat.html、靜態資源）視為人員可用。 */
 export function isAdminSurface(pathname) {

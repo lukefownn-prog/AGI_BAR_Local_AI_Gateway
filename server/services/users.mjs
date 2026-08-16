@@ -110,12 +110,36 @@ export function touchLastSeen(userId) {
   run("UPDATE users SET last_seen_at = datetime('now') WHERE id = ?", [userId]);
 }
 
+/**
+ * V1.2 之前的初始管理員被塞了一個寫死的中文顯示名稱。
+ *
+ * 那不是管理員自己填的資料，是我們的預設值 —— 但它一旦落進 users.display_name，
+ * 介面就只能照實顯示，於是切到英文/日文時整個管理台只剩這一格是中文。
+ * 啟動時清掉，之後由介面回退顯示帳號（管理員仍可自行填真正的姓名）。
+ *
+ * 只比對完全相同的舊預設值，且只動 admin —— 若有人真的把自己命名為這四個字，
+ * 那是他自己填的，不該被我們改掉；但那筆會是 role='user'，不在範圍內。
+ */
+const LEGACY_ADMIN_DISPLAY_NAME = '系統管理員';
+
+function clearLegacyAdminDisplayName() {
+  const info = run(
+    "UPDATE users SET display_name = '' WHERE role = 'admin' AND display_name = ?",
+    [LEGACY_ADMIN_DISPLAY_NAME],
+  );
+  if (info.changes) {
+    log.info('已清除初始管理員的預設顯示名稱（改由介面依語言顯示）', { rows: info.changes });
+  }
+}
+
 /** 首次啟動：由 config.admin 建立初始管理員。 */
 export function bootstrapAdmin(config) {
+  clearLegacyAdminDisplayName();
   if (countAdmins() > 0) return null;
   const { username, initialPassword } = config.admin;
+  // 不預填顯示名稱：任何寫死的字串都會在其他語言下變成突兀的外語
   const admin = createUser(
-    { username, displayName: '系統管理員', role: 'admin', status: 'active', password: initialPassword },
+    { username, role: 'admin', status: 'active', password: initialPassword },
     { maxUsers: Number.MAX_SAFE_INTEGER, actorId: null },
   );
   log.warn('已建立初始管理員，請立即登入並修改密碼', { username });

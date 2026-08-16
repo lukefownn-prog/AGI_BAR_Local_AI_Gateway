@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <!-- viewport-fit=cover 讓 env(safe-area-inset-*) 生效，避開瀏海與 home indicator -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>AGI BAR - 網頁聊天</title>
+  <title data-i18n-title="chat.pageTitle">AGI BAR - 網頁聊天</title>
   <link rel="stylesheet" href="/assets/app.css">
   <link rel="stylesheet" href="/assets/chat.css">
 </head>
@@ -12,26 +12,28 @@
   <div class="chat-shell">
     <header class="chat-top">
       <b>AGI BAR</b>
-      <span class="muted small" id="whoLabel">尚未連線</span>
+      <span class="muted small" id="whoLabel" data-i18n="chat.notConnected">尚未連線</span>
       <div class="spacer" style="flex:1"></div>
       <span class="tag" id="quotaTag" hidden></span>
       <div class="actions">
-        <button class="sm" id="keyBtn">API Key</button>
-        <button class="sm" id="clearBtn">清除對話</button>
+        <select class="lang-select" data-lang-select></select>
+        <button class="sm" id="keyBtn" data-i18n="chat.keyBtn">API Key</button>
+        <button class="sm" id="clearBtn" data-i18n="chat.clearBtn">清除對話</button>
       </div>
     </header>
 
     <main class="chat-body" id="messages">
       <div class="empty" id="welcome">
-        <h3>開始對話</h3>
-        <p class="muted small">請先按右上角「API Key」輸入管理員配發給你的 Key。<br>
+        <h3 data-i18n="chat.welcomeTitle">開始對話</h3>
+        <p class="muted small" data-i18n-html="chat.welcomeDesc">請先按右上角「API Key」輸入管理員配發給你的 Key。<br>
         Key 只保存在這台瀏覽器，不會送往管理端以外的地方。</p>
       </div>
     </main>
 
     <footer class="chat-input">
-      <textarea id="prompt" rows="1" placeholder="輸入訊息…（Enter 送出，Shift+Enter 換行）"></textarea>
-      <button class="primary" id="sendBtn">送出</button>
+      <textarea id="prompt" rows="1" data-i18n-placeholder="chat.placeholder"
+        placeholder="輸入訊息…（Enter 送出，Shift+Enter 換行）"></textarea>
+      <button class="primary" id="sendBtn" data-i18n="chat.send">送出</button>
     </footer>
   </div>
 

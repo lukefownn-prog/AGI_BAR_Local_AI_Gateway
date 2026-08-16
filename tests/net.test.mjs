@@ -7,7 +7,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import os from 'node:os';
-import { lanAddresses, primaryLanAddress, lanUrls } from '../server/core/net.mjs';
+import { lanAddresses, primaryLanAddress, lanUrls, ipInCidr } from '../server/core/net.mjs';
 
 /** 暫時替換 os.networkInterfaces，模擬各種機器組態。 */
 function withInterfaces(fake, fn) {
@@ -90,4 +90,38 @@ test('IPv6 不列入（人員設定用的是 IPv4 位址）', () => {
   }, () => {
     assert.deepEqual(lanAddresses().map((a) => a.address), ['192.168.2.124']);
   });
+});
+
+// ---------------- CIDR 判斷 ----------------
+//
+// 管理台的存取隔離（services/access.mjs）完全靠這組判斷決定誰進得來。
+// 判錯的方向只有一個是致命的：把不該放行的來源判成 true，
+// 等於區網任何人都能開管理台。所以規則釘死在測試裡。
+
+test('IPv4 CIDR 判斷正確', () => {
+  assert.equal(ipInCidr('127.0.0.1', '127.0.0.0/8'), true);
+  assert.equal(ipInCidr('10.20.30.40', '10.0.0.0/8'), true);
+  assert.equal(ipInCidr('172.16.5.4', '172.16.0.0/12'), true);
+  assert.equal(ipInCidr('172.32.5.4', '172.16.0.0/12'), false);
+  assert.equal(ipInCidr('192.168.1.1', '192.168.0.0/16'), true);
+  assert.equal(ipInCidr('192.168.1.50', '192.168.1.50/32'), true);
+  assert.equal(ipInCidr('192.168.1.51', '192.168.1.50/32'), false);
+  assert.equal(ipInCidr('8.8.8.8', '10.0.0.0/8'), false);
+});
+
+test('IPv6 CIDR 判斷正確', () => {
+  assert.equal(ipInCidr('::1', '::1/128'), true);
+  assert.equal(ipInCidr('fd00::1', 'fc00::/7'), true);
+  assert.equal(ipInCidr('fe80::1', 'fe80::/10'), true);
+  assert.equal(ipInCidr('2001:4860:4860::8888', 'fc00::/7'), false);
+});
+
+test('IPv4-mapped IPv6 會還原成 IPv4 比對', () => {
+  assert.equal(ipInCidr('::ffff:127.0.0.1', '127.0.0.0/8'), true);
+  assert.equal(ipInCidr('::ffff:8.8.8.8', '127.0.0.0/8'), false);
+});
+
+test('位址族不符時不誤判為命中', () => {
+  assert.equal(ipInCidr('8.8.8.8', '::1/128'), false);
+  assert.equal(ipInCidr('2001:db8::1', '10.0.0.0/8'), false);
 });

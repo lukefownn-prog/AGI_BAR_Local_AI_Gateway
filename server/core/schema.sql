@@ -47,7 +47,6 @@ CREATE TABLE IF NOT EXISTS api_key_limits (
   rpm                 INTEGER NOT NULL DEFAULT 20,
   concurrent          INTEGER NOT NULL DEFAULT 2,
   priority            TEXT    NOT NULL DEFAULT 'normal', -- admin | high | normal | guest
-  internet_allowed    INTEGER NOT NULL DEFAULT 0,
   valid_from          TEXT,                              -- YYYY-MM-DD
   valid_until         TEXT,                              -- YYYY-MM-DD
   daily_window_start  TEXT    NOT NULL DEFAULT '00:00',
@@ -127,29 +126,12 @@ CREATE TABLE IF NOT EXISTS request_logs (
   status_code    INTEGER NOT NULL DEFAULT 200,
   error_code     TEXT    NOT NULL DEFAULT '',
   error_message  TEXT    NOT NULL DEFAULT '',
-  used_internet  INTEGER NOT NULL DEFAULT 0,
   prompt_hash    TEXT    NOT NULL DEFAULT '',
   client_ip      TEXT    NOT NULL DEFAULT '',
   user_agent     TEXT    NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_reqlog_ts ON request_logs(ts);
 CREATE INDEX IF NOT EXISTS idx_reqlog_user ON request_logs(user_id, ts);
-
--- ---------- 受控上網紀錄（規畫書 9）----------
-CREATE TABLE IF NOT EXISTS web_access_logs (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  ts          TEXT    NOT NULL DEFAULT (datetime('now')),
-  user_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
-  request_id  TEXT    NOT NULL DEFAULT '',
-  tool        TEXT    NOT NULL DEFAULT '',              -- web_search | url_fetch
-  target      TEXT    NOT NULL DEFAULT '',
-  resolved_ip TEXT    NOT NULL DEFAULT '',
-  allowed     INTEGER NOT NULL DEFAULT 0,
-  reason      TEXT    NOT NULL DEFAULT '',
-  bytes       INTEGER NOT NULL DEFAULT 0,
-  status_code INTEGER NOT NULL DEFAULT 0
-);
-CREATE INDEX IF NOT EXISTS idx_weblog_ts ON web_access_logs(ts);
 
 -- ---------- 全域設定與安全政策 ----------
 CREATE TABLE IF NOT EXISTS system_settings (

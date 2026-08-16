@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AGI BAR 管理台</title>
+  <title data-i18n-title="app.pageTitle">AGI BAR 管理台</title>
   <link rel="stylesheet" href="/assets/app.css">
 </head>
 <body>
@@ -11,20 +11,19 @@
     <aside class="sidebar">
       <div class="brand">
         <b>AGI BAR</b>
-        <span>Local AI Gateway</span>
+        <span data-i18n="app.brandSub">Local AI Gateway</span>
       </div>
       <nav id="nav">
-        <a href="#/dashboard" data-page="dashboard"><i class="ico">▦</i><span class="txt">儀表板</span></a>
-        <a href="#/users"     data-page="users"><i class="ico">▤</i><span class="txt">人員</span></a>
-        <a href="#/keys"      data-page="keys"><i class="ico">⚿</i><span class="txt">API</span></a>
-        <a href="#/models"    data-page="models"><i class="ico">◆</i><span class="txt">AI 模型</span></a>
-        <a href="#/internet"  data-page="internet"><i class="ico">◈</i><span class="txt">網路</span></a>
-        <a href="#/logs"      data-page="logs"><i class="ico">☰</i><span class="txt">紀錄</span></a>
-        <a href="#/settings"  data-page="settings"><i class="ico">⚙</i><span class="txt">設定</span></a>
+        <a href="#/dashboard" data-page="dashboard"><i class="ico">▦</i><span class="txt" data-i18n="nav.dashboard">儀表板</span></a>
+        <a href="#/users"     data-page="users"><i class="ico">▤</i><span class="txt" data-i18n="nav.users">人員</span></a>
+        <a href="#/keys"      data-page="keys"><i class="ico">⚿</i><span class="txt" data-i18n="nav.keys">API</span></a>
+        <a href="#/models"    data-page="models"><i class="ico">◆</i><span class="txt" data-i18n="nav.models">AI 模型</span></a>
+        <a href="#/logs"      data-page="logs"><i class="ico">☰</i><span class="txt" data-i18n="nav.logs">紀錄</span></a>
+        <a href="#/settings"  data-page="settings"><i class="ico">⚙</i><span class="txt" data-i18n="nav.settings">設定</span></a>
       </nav>
       <div class="foot">
         <div id="sideVersion">v1.2.0</div>
-        <a href="/chat.html" target="_blank">網頁聊天 ↗</a>
+        <a href="/chat.html" target="_blank" data-i18n="app.chatLink">網頁聊天 ↗</a>
       </div>
     </aside>
 
@@ -32,8 +31,9 @@
       <div class="topbar">
         <h2 id="pageTitle">儀表板</h2>
         <div class="btn-row">
+          <select class="lang-select" data-lang-select></select>
           <span class="who" id="whoami"></span>
-          <button class="sm" id="logoutBtn">登出</button>
+          <button class="sm" id="logoutBtn" data-i18n="app.logout">登出</button>
         </div>
       </div>
       <div class="content" id="content"></div>

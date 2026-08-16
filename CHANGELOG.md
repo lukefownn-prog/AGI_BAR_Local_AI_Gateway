@@ -1,11 +1,45 @@
 # Changelog
 
+**繁體中文** ｜ [English](CHANGELOG.en.md) ｜ [日本語](CHANGELOG.ja.md)
+
 本檔案格式參考 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.1.0/)，
 版本號採用 [Semantic Versioning](https://semver.org/lang/zh-TW/)。
 
 ## [Unreleased]
 
 ### 新增
+
+**紀錄保留期同時套用到資料庫（`server/services/retention.mjs`）**
+
+`logging.retentionDays` 原本只清 `data/logs/` 底下的日誌檔，
+資料庫裡的 `usage_logs` / `request_logs` / `audit_logs` 則是永久成長 ——
+而設定頁寫著「紀錄保留 30 天」，管理員會合理地以為兩者都算。現在那句話對資料庫也成立。
+
+- 啟動時清一次，之後每 24 小時再清一次。**啟動時就清**很重要：這套會被搬到不同場所、
+  關機再開，只靠常駐排程的話開機時間不夠長就永遠輪不到
+- 清理排在啟動備份**之前** —— 反過來的話備份會把正要刪掉的資料一起收進快照
+- `retentionDays` 設 0 或負數視為永久保留，不刪任何資料（唯一的安全閥）
+- 只動三張紀錄表；人員、API Key、模型、路由、設定一律不碰
+- 三張表都有 `ts` 索引，刪除走索引不會全表掃描
+- 設定頁補上說明與「上次清理」時間，三種語言皆有
+- 新增 7 項測試（邊界、安全閥、預設值回退、不該被碰的資料表）
+
+**網頁介面多語系與語言切換下拉選單**
+
+管理台、登入頁與網頁聊天三個頁面都加上語言下拉選單，
+支援**繁體中文 / English / 日本語**。
+
+- 新增 `web/assets/i18n.js` —— 字典、`t()` 取詞、`{變數}` 代入、語言偵測與切換事件，
+  零相依、無建置流程，與專案其他部分一致
+- 首次進站以瀏覽器語言自動判斷（`ja` / `zh` / `en`），選過之後記在 localStorage，
+  重新整理與換頁都會沿用，同時同步 `<html lang>`
+- 靜態 HTML 以 `data-i18n` / `data-i18n-html` / `data-i18n-placeholder` /
+  `data-i18n-title` 標記；動態渲染的內容改走 `t()`
+- 切換語言不重新載入頁面：管理台重跑目前分頁的渲染函式，
+  聊天頁只換介面文字，**已送出的對話內容會保留**
+- 涵蓋全部介面文字，包含表格標題、對話框、Toast、確認訊息、
+  狀態與優先級標籤、星期名稱，以及「怎麼新增模型」整段說明
+- 數字格式（`toLocaleString`）與星期分隔符號跟著語言走
 
 **Anthropic Messages API 相容端點（M16，Issue #1）**
 
@@ -102,6 +136,33 @@ Claude Code 走的是 Anthropic 格式，本地模型幾乎只講 OpenAI 格式�
 已對真實 Ollama 實測：探索兩個模型、加入、健康檢查 online、實際對話成功。
 
 ### 修正
+
+**在對話框欄位裡拖曳選字會誤關對話框**
+
+在「新增人員」的 Token 欄位裡按住往外拖曳選取數字、放開在對話框外時，
+整個對話框會關閉，已填好的欄位全部消失。用鍵盤逐字刪除則不會 ——
+因為根本沒碰到滑鼠，所以看起來像「有時候會、有時候不會」。
+
+原因是 `modal()` 只判斷 `click` 事件的 `target` 是否為遮罩。
+但 `click` 的 target 是 mousedown 與 mouseup 兩個目標的**最近共同祖先** ——
+在輸入框內按下、在對話框外放開時，共同祖先剛好就是遮罩本身。
+
+- 改為 `pointerdown` + `pointerup`，兩者都落在遮罩上才關閉
+- 一併修掉 Escape 監聽器的殘留：舊版只有在按 Escape 那條路徑才解除，
+  用 ✕／取消／點遮罩關閉都會在 `document` 上留下一個 keydown 監聽器
+- 管理台與網頁聊天共用同一個 `modal()`，兩邊都受惠
+
+**初始管理員的顯示名稱不再寫死中文**
+
+`bootstrapAdmin()` 過去會把 `系統管理員` 直接寫進 `users.display_name`。
+那是預設值而非管理員填的資料，但一旦落進資料庫，介面只能照實顯示 ——
+切到英文／日文時，整個管理台就只剩這一格是中文（右上角、人員清單、紀錄頁）。
+
+- 初始管理員改為不預填顯示名稱，介面回退顯示帳號（`admin`），三種語言一致
+- 既有資料庫在啟動時正規化：只清除 `role = 'admin'` 且值完全等於舊預設字串的那筆，
+  管理員自己填的姓名（含其他人員）一律不動
+- 人員清單的「姓名」欄在未填時改顯示帳號，不再是 `—`
+
 - `config.example.json` 的 `limits.defaultUserLimits.tokensPerRequest`：8192 → 32768
 - **測試環境隔離**。`tests/access.test.mjs` 靜態 import 了 server 模組，
   而 ESM 會先求值所有 import 才執行頂層敘述，導致 `core/paths.mjs` 在
@@ -112,7 +173,30 @@ Claude Code 走的是 Anthropic 格式，本地模型幾乎只講 OpenAI 格式�
 
 - 測試從 86 項增加到 154 項
 
+### 移除
+
+**受控上網（Web Search / URL Fetch）整組功能**
+
+管理台的「網路」頁、`/v1/tools/*` 工具端點與相關配額欄位全部移除。
+AGI BAR 回歸單純的網關職責：驗證、配額、排隊、路由、紀錄。
+
+- 刪除 `server/services/websafe.mjs` 與 `tests/websafe.test.mjs`
+- 刪除 `POST /v1/tools/web_search`、`POST /v1/tools/url_fetch`
+- 刪除 `GET/PATCH /api/internet`、`POST /api/internet/test`、`GET /api/logs/web`
+- 刪除管理台「網路與安全上網」頁與側邊欄項目、儀表板的「Internet 狀態」卡、
+  紀錄頁的「受控上網紀錄」面板
+- **新增人員／配額設定的「允許上網」欄位取消**，API Key 總表的「上網」欄一併移除
+- 設定檔移除整個 `internet` 區塊與 `limits.defaultUserLimits.internetAllowed`
+- schema 移除 `api_key_limits.internet_allowed`、`request_logs.used_internet`
+  與 `web_access_logs` 資料表（既有資料庫的欄位都有預設值，不需手動遷移）
+
+**保留管理台的存取隔離。** `security.adminAccess` 維持原樣 ——
+預設只有 AI 主機本機能開管理台，區網人員連 `/app.html` 與 `/api/*` 一律回 404，
+管理台看起來就像不存在。這項判定所需的 `ipInCidr` 已從 `services/websafe.mjs`
+搬到 `core/net.mjs`，對應的 CIDR 測試也移入 `tests/net.test.mjs`。
+
 ### 待辦
+
 - M11 各客戶端的實機點擊驗證（API 層面已全數通過，Issue #1）
 - M14 對真實 GPU 主機與 LAN 多機的實機驗收（腳本已完成，Issue #2）
 

@@ -112,6 +112,7 @@ a:hover { text-decoration: underline; }
 }
 .topbar h2 { margin: 0; font-size: 17px; font-weight: 600; }
 .topbar .who { color: var(--ink-soft); font-size: 13px; }
+.topbar .btn-row { align-items: center; }
 
 .content { padding: 22px 24px 60px; }
 
@@ -222,6 +223,21 @@ button.sm { padding: 5px 10px; font-size: 12px; }
 button.block { width: 100%; padding: 11px; font-size: 15px; }
 
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------------- 語言切換 ---------------- */
+
+/* select 預設 width:100%，語言選單要跟按鈕一樣只佔內容寬度 */
+select.lang-select {
+  width: auto;
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+/* 登入卡片右上角 */
+.login-card .lang-row { display: flex; justify-content: flex-end; margin-bottom: 8px; }
 
 /* ---------------- 標籤 ---------------- */
 

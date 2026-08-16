@@ -22,6 +22,7 @@ import { syncCatalog, startHealthLoop, stopHealthLoop } from './services/models.
 import { queue } from './services/queue.mjs';
 import { purgeExpiredSessions } from './services/session.mjs';
 import { startBackupSchedule, stopBackupSchedule } from './services/backup.mjs';
+import { startRetentionSchedule, stopRetentionSchedule } from './services/retention.mjs';
 import { adminRouter } from './routes/admin.mjs';
 import { openaiRouter } from './routes/openai.mjs';
 import { anthropicRouter, anthropicModelList, requireApiKey } from './routes/anthropic.mjs';
@@ -227,6 +228,8 @@ export async function main() {
   syncCatalog(config);
   queue.configure(config.queue);
   startHealthLoop(config);
+  // 先清逾期紀錄再備份 —— 反過來的話啟動備份會把正要刪掉的資料一起收進快照
+  startRetentionSchedule(config);
   startBackupSchedule(config);
 
   const server = await createServer(config);
@@ -336,6 +339,7 @@ export async function main() {
     clearInterval(shutdownWatcher);
     stopHealthLoop();
     stopBackupSchedule();
+    stopRetentionSchedule();
     queue.drain();
     server.close(async () => {
       closeDb();

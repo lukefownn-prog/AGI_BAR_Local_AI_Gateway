@@ -82,7 +82,7 @@ test('管理員可登入', async () => {
 test('Dashboard 提供規畫書要求的指標', async () => {
   const { status, body } = await admin('/api/dashboard');
   assert.equal(status, 200);
-  for (const k of ['users', 'requests', 'tokens', 'queue', 'gpu', 'internet', 'models']) {
+  for (const k of ['users', 'requests', 'tokens', 'queue', 'gpu', 'models']) {
     assert.ok(k in body, `dashboard 缺少 ${k}`);
   }
 });
@@ -263,29 +263,6 @@ test('一般人員的 /v1/models 不揭露後端模型真名', async () => {
   const ids = data.data.map((d) => d.id);
   assert.ok(ids.includes('agi-bar-default'));
   assert.ok(!ids.includes('primary'), '不應洩漏上游 model_name');
-});
-
-// ---------------- 受控上網 ----------------
-
-test('未授權上網的 Key 無法使用工具', async () => {
-  const res = await asUser(userKey, '/v1/tools/url_fetch', {
-    method: 'POST', body: JSON.stringify({ url: 'https://example.com' }),
-  });
-  assert.equal(res.status, 403);
-  assert.equal((await res.json()).error.code, 'internet_not_allowed');
-});
-
-test('授權上網後仍封鎖內網位址', async () => {
-  await admin(`/api/keys/${keyId}`, { method: 'PATCH', body: { limits: { internetAllowed: true } } });
-  await admin('/api/internet', { method: 'PATCH', body: { enabled: true } });
-
-  const res = await asUser(userKey, '/v1/tools/url_fetch', {
-    method: 'POST', body: JSON.stringify({ url: 'http://192.168.0.1/router' }),
-  });
-  assert.equal(res.status, 403);
-  assert.equal((await res.json()).error.code, 'private_network_blocked');
-
-  await admin('/api/internet', { method: 'PATCH', body: { enabled: false } });
 });
 
 // ---------------- 紀錄 ----------------

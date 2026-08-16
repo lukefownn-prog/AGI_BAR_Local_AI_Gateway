@@ -24,6 +24,7 @@
   flex-shrink: 0;
 }
 .chat-top b { font-size: 16px; letter-spacing: .5px; white-space: nowrap; }
+.chat-top .actions { display: flex; align-items: center; gap: 8px; }
 
 .chat-body {
   flex: 1;
@@ -111,6 +112,7 @@
     order: 3;
   }
   .chat-top .actions button { flex: 1; padding: 6px 8px; font-size: 12px; }
+  .chat-top .actions .lang-select { flex: 0 0 auto; padding: 6px 8px; }
 
   .chat-body { padding: 14px 10px 6px; gap: 12px; }
   .msg .text { padding: 10px 12px; }

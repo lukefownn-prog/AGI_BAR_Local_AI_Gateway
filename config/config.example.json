@@ -44,7 +44,6 @@
       "rpm": 20,
       "concurrent": 2,
       "priority": "normal",
-      "internetAllowed": false,
       "validFrom": null,
       "validUntil": null,
       "dailyWindowStart": "08:00",
@@ -136,48 +135,6 @@
       "agi-bar-default": "依人員的 Model Route 自動選擇",
       "agi-bar-fast": "偏好低延遲的路由",
       "agi-bar-long": "偏好長上下文的路由"
-    }
-  },
-
-  "internet": {
-    "enabled": false,
-    "searchProvider": "none",
-    "searchEndpoint": "",
-    "searchApiKeyEnv": "",
-    "maxResults": 5,
-    "fetch": {
-      "maxBytes": 2097152,
-      "timeoutMs": 10000,
-      "maxRedirects": 3,
-      "allowedSchemes": ["http", "https"],
-      "allowedContentTypes": [
-        "text/html",
-        "text/plain",
-        "text/markdown",
-        "application/json",
-        "application/xml",
-        "text/xml"
-      ],
-      "blockPrivateNetworks": true,
-      "blockedCidrs": [
-        "127.0.0.0/8",
-        "10.0.0.0/8",
-        "172.16.0.0/12",
-        "192.168.0.0/16",
-        "169.254.0.0/16",
-        "0.0.0.0/8",
-        "100.64.0.0/10",
-        "::1/128",
-        "fc00::/7",
-        "fe80::/10"
-      ],
-      "domainAllowlist": [],
-      "domainBlocklist": [
-        "localhost",
-        "*.local",
-        "*.internal",
-        "*.lan"
-      ]
     }
   },
 

@@ -1,5 +1,7 @@
 # AGI BAR — Local AI Gateway Management System
 
+**繁體中文** ｜ [English](README.en.md) ｜ [日本語](README.ja.md)
+
 以瀏覽器為主要操作介面的**本地 AI 網關管理系統**。管理員在一台 AI 主機上啟動服務後，
 人員只要連上同一網路，即可透過網頁聊天，或以 **OpenAI API 相容** 方式連接各種 AI 開發工具與 App。
 
@@ -18,8 +20,8 @@
 | 速率控制 | RPM 與 Concurrent 同時請求數 |
 | 模型路由 | 每人獨立優先順序，順位 1 失效自動 Failover 到下一順位 |
 | 優先佇列 | P0 管理員 / P1 高 / P2 一般 / P3 訪客 + anti-starvation |
-| 安全上網 | 受控 Web Search / URL Fetch，預設封鎖所有內網位址 |
-| 完整稽核 | 每次請求的等待、推理、Token、Failover 與上網行為都留存 |
+| 管理台隔離 | 管理介面預設僅限 AI 主機本機存取，區網人員一律回 404 |
+| 完整稽核 | 每次請求的等待、推理、Token 與 Failover 行為都留存 |
 | 雙協定相容 | 同時支援 OpenAI `/v1/chat/completions` 與 Anthropic `/v1/messages`，共用同一份配額 |
 
 **零 npm 相依。** 全部以 Node.js 內建模組實作（`node:http` + `node:sqlite` + `node:crypto`），
@@ -113,7 +115,7 @@ agi-bar/
 ├─ web/                 Web UI（管理台 + 網頁聊天，無建置流程）
 ├─ server/              Gateway / API / Queue / Router
 │  ├─ core/             設定、資料庫、加密、HTTP、日誌
-│  ├─ services/         人員、Key、配額、模型、路由、佇列、上網、備份
+│  ├─ services/         人員、Key、配額、模型、路由、佇列、備份
 │  └─ routes/           管理 API、OpenAI 相容 API、靜態檔
 ├─ scripts/             建置與檢查腳本
 ├─ config/              config.example.json（config.json 不進 Git）
@@ -132,7 +134,7 @@ agi-bar/
 npm test
 ```
 
-106 項測試涵蓋佇列優先權與 anti-starvation、時間權限、SSRF 防護、
+163 項測試涵蓋佇列優先權與 anti-starvation、時間權限、管理台存取隔離、
 Anthropic ↔ OpenAI 轉譯，以及兩條端對端管線
 （登入 → 建人員 → 發 Key → 配額 → 路由 → Failover → 紀錄）。
 
@@ -164,7 +166,7 @@ npm run compat -- --url http://<IP>:8787 --key agi-bar-xxxxxxxx
 - `config/config.json`、`data/`、`models/`、`runtime/` 已列入 `.gitignore`，
   **API Key、密碼、使用紀錄與模型檔不會進入版本庫**。
 - 外部雲端模型（如 DeepSeek）預設停用。啟用等同同意將 Prompt 送出本機網路，
-  請依公司政策評估後再開啟。
+  請依組織政策評估後再開啟。
 
 完整清單見 **[docs/安全須知.md](docs/安全須知.md)**。
 
@@ -172,4 +174,7 @@ npm run compat -- --url http://<IP>:8787 --key agi-bar-xxxxxxxx
 
 ## 授權
 
-本專案為內部專用，未開放公開散布。詳見 [LICENSE](LICENSE)。
+[MIT License](LICENSE)。可自由使用、修改、散布與商用，只需保留著作權標示。
+
+部署者仍須自行負責部署環境的網路安全與存取控制、所連接 AI 模型的授權合規，
+以及透過本系統處理之資料的合法性與保密義務。
