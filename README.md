@@ -1,5 +1,7 @@
 # AGI BAR — Local AI Gateway Management System
 
+**繁體中文** ｜ [English](README.en.md) ｜ [日本語](README.ja.md)
+
 以瀏覽器為主要操作介面的**本地 AI 網關管理系統**。管理員在一台 AI 主機上啟動服務後，
 人員只要連上同一網路，即可透過網頁聊天，或以 **OpenAI API 相容** 方式連接各種 AI 開發工具與 App。
 
@@ -164,7 +166,7 @@ npm run compat -- --url http://<IP>:8787 --key agi-bar-xxxxxxxx
 - `config/config.json`、`data/`、`models/`、`runtime/` 已列入 `.gitignore`，
   **API Key、密碼、使用紀錄與模型檔不會進入版本庫**。
 - 外部雲端模型（如 DeepSeek）預設停用。啟用等同同意將 Prompt 送出本機網路，
-  請依公司政策評估後再開啟。
+  請依組織政策評估後再開啟。
 
 完整清單見 **[docs/安全須知.md](docs/安全須知.md)**。
 
@@ -172,4 +174,7 @@ npm run compat -- --url http://<IP>:8787 --key agi-bar-xxxxxxxx
 
 ## 授權
 
-本專案為內部專用，未開放公開散布。詳見 [LICENSE](LICENSE)。
+[MIT License](LICENSE)。可自由使用、修改、散布與商用，只需保留著作權標示。
+
+部署者仍須自行負責部署環境的網路安全與存取控制、所連接 AI 模型的授權合規，
+以及透過本系統處理之資料的合法性與保密義務。

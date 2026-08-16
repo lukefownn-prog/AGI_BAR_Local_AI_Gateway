@@ -1,32 +1,42 @@
-AGI BAR - Local AI Gateway Management System
-專有軟體授權（Proprietary License）
+MIT License
 
-Copyright (c) 2026. All Rights Reserved.
+Copyright (c) 2026 lukefownn-prog
 
-本軟體及其原始碼、文件與相關資產（以下合稱「本軟體」）為著作權人之專有財產，
-僅授權予著作權人明確指定之內部使用者，於其組織內部使用。
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-准許事項
---------
-1. 在授權組織的內部環境中安裝、執行本軟體。
-2. 為內部使用之目的修改本軟體。
-3. 於授權組織內部散布修改後的版本。
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-禁止事項
---------
-1. 未經著作權人書面同意，不得對授權組織以外之任何第三方散布、公開、轉授權、
-   出售、出租或以其他方式提供本軟體之全部或一部。
-2. 不得移除或變更本軟體中的著作權標示與本授權條款。
-3. 不得將本軟體用於違反適用法律之用途。
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
-免責聲明
---------
-本軟體係以「現狀」提供，不附任何明示或默示之擔保，包括但不限於適售性、
-特定目的適用性及非侵權之擔保。在任何情況下，著作權人均不對任何索賠、
-損害或其他責任負責，無論係因契約、侵權或其他行為所引起，或與本軟體、
-本軟體之使用或其他交易有關。
+---
 
-本軟體使用者應自行負責：
-- 部署環境的網路安全與存取控制
-- 所連接之本地或外部 AI 模型的授權合規
-- 透過本軟體處理之資料的合法性與保密義務
+Note on responsibilities when deploying this software
+（部署本軟體時的責任提醒 / 本ソフトウェア運用時の責任について）
+
+The MIT License above governs your rights to the code. Regardless of those
+rights, operators remain responsible for:
+
+- Network security and access control of the deployment environment
+- Licence compliance of any local or external AI models connected to it
+- The legality and confidentiality of data processed through it
+
+授權條款規範的是程式碼的使用權利。無論如何，部署者仍須自行負責：
+部署環境的網路安全與存取控制、所連接之本地或外部 AI 模型的授權合規、
+以及透過本軟體處理之資料的合法性與保密義務。
+
+上記ライセンスはコードの利用権を定めるものです。運用者は引き続き、
+デプロイ環境のネットワークセキュリティとアクセス制御、接続する
+ローカル／外部 AI モデルのライセンス遵守、および本ソフトウェアで
+処理されるデータの適法性と守秘義務について責任を負います。
