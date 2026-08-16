@@ -1,72 +1,113 @@
-# Release 發布（規畫書 16.3）
-# main 穩定 → 建立版本號 → 產生 CHANGELOG → 建立 GitHub Release
-# → 建置 ZIP → 計算 SHA-256 → 上傳 Release Asset
-
 name: Release
 
 on:
   push:
-    tags: ['v*.*.*']
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag:
-        description: '版本 Tag（例如 v1.2.0）'
+        description: Release tag, for example v2.0.1
         required: true
+        type: string
 
 permissions:
   contents: write
 
 jobs:
   release:
-    name: 建置並發布
+    name: Build and publish
     runs-on: windows-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out release ref
+        uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '24.x'
 
-      # Release 前再跑一次完整驗證，避免直接打 tag 繞過 CI
-      - name: 完整驗證
+      - name: Install npm dependencies when a lockfile exists
+        shell: pwsh
         run: |
-          node scripts/lint.mjs
-          node --test "tests/**/*.test.mjs"
-          node scripts/security-scan.mjs
-          node scripts/check-portable.mjs
+          $pkg = Get-Content -Raw package.json | ConvertFrom-Json
+          $hasDependencies = $false
+          foreach ($field in @('dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies')) {
+            $property = $pkg.PSObject.Properties[$field]
+            if ($null -ne $property -and @($property.Value.PSObject.Properties).Count -gt 0) {
+              $hasDependencies = $true
+            }
+          }
 
-      - name: 確認 Tag 與 package.json 版本一致
-        shell: bash
+          if (Test-Path -LiteralPath 'package-lock.json') {
+            npm ci
+            if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
+          } elseif ($hasDependencies) {
+            throw 'package-lock.json is required before installing npm dependencies.'
+          } else {
+            Write-Host 'No npm dependencies or lockfile; npm ci is not required.'
+          }
+
+      - name: Verify source
+        shell: pwsh
         run: |
-          TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          PKG="v$(node -p "require('./package.json').version")"
-          if [ "$TAG" != "$PKG" ]; then
-            echo "::error::Tag ($TAG) 與 package.json 版本 ($PKG) 不一致"
-            exit 1
-          fi
+          npm run verify
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: 建置 Portable ZIP
-        run: node scripts/build-portable.mjs
+      - name: Verify tag and package version
+        shell: pwsh
+        run: |
+          $version = node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version"
+          $expectedTag = "v$version"
+          if ($env:RELEASE_TAG -ne $expectedTag) {
+            throw "Tag $env:RELEASE_TAG does not match package.json version $expectedTag."
+          }
 
-      - name: 建立 GitHub Release
-        shell: bash
+      - name: Build Windows Portable ZIP
+        shell: pwsh
+        run: |
+          $archiveModuleRoot = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\Modules'
+          if (Test-Path -LiteralPath $archiveModuleRoot) {
+            $env:PSModulePath = "$archiveModuleRoot;$env:PSModulePath"
+          }
+          npm run build:portable
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify ZIP and SHA-256
+        shell: pwsh
+        run: |
+          $version = node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version"
+          $zip = Join-Path $PWD "dist\AGI-BAR-v$version-win64.zip"
+          $sha = "${zip}.sha256"
+          if (-not (Test-Path -LiteralPath $zip -PathType Leaf)) { throw "Missing Portable ZIP: $zip" }
+          if (-not (Test-Path -LiteralPath $sha -PathType Leaf)) { throw "Missing SHA-256 file: $sha" }
+
+          $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash.ToLowerInvariant()
+          $recorded = (Get-Content -Raw -LiteralPath $sha).Trim()
+          $zipName = Split-Path -Leaf $zip
+          $expected = "$actualHash  $zipName"
+          if ($recorded -ne $expected) { throw "SHA-256 mismatch in $sha." }
+
+          Add-Content -Path $env:GITHUB_ENV -Value "ZIP_PATH=$zip"
+          Add-Content -Path $env:GITHUB_ENV -Value "SHA_PATH=$sha"
+
+      - name: Create or update GitHub Release
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          gh release create "$TAG" \
-            dist/*.zip dist/*.sha256 \
-            --title "$TAG" \
-            --notes "見 [CHANGELOG.md](CHANGELOG.md)。
-
-          ## 部署方式
-
-          1. 下載 ZIP 並核對 SHA-256
-          2. 解壓到固定路徑
-          3. **保留既有的 \`config/\` 與 \`data/\` 目錄**
-          4. 執行 \`啟動 AGI BAR.cmd\`
-          5. 執行 \`node scripts/healthcheck.mjs\` 確認健康
-
-          詳見 [docs/部署.md](docs/部署.md)。"
+          gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:RELEASE_TAG $env:ZIP_PATH $env:SHA_PATH --repo $env:GITHUB_REPOSITORY --clobber
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            Write-Host "Updated release $env:RELEASE_TAG."
+          } else {
+            gh release create $env:RELEASE_TAG $env:ZIP_PATH $env:SHA_PATH --repo $env:GITHUB_REPOSITORY --title $env:RELEASE_TAG --generate-notes
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            Write-Host "Created release $env:RELEASE_TAG."
+          }
