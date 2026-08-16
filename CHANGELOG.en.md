@@ -7,6 +7,21 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 
 ## [Unreleased]
 
+### To do
+
+- M11: hands-on click-through verification of each client (the API layer already passes fully,
+  issue #1)
+- M14: acceptance on a real GPU host and across multiple LAN machines (the script is complete,
+  issue #2)
+
+---
+
+## [2.0.0] - 2026-08-16
+
+The first public release. The licence changed from proprietary to MIT.
+
+**Breaking change:** the entire controlled-browsing feature (web search / URL fetch) was removed, including the `/v1/tools/*` and `/api/internet` endpoints. Existing databases need no manual migration.
+
 ### Added
 
 **Log retention now applies to database records too (`server/services/retention.mjs`)**
@@ -223,13 +238,6 @@ the console looks as though it does not exist. The `ipInCidr` helper this decisi
 from `services/websafe.mjs` to `core/net.mjs`, and the corresponding CIDR tests moved into
 `tests/net.test.mjs`.
 
-### To do
-
-- M11: hands-on click-through verification of each client (the API layer already passes fully,
-  issue #1)
-- M14: acceptance on a real GPU host and across multiple LAN machines (the script is complete,
-  issue #2)
-
 ---
 
 ## [1.2.0] - 2026-08-07
@@ -320,5 +328,6 @@ Edition*.
 - `PATCH /api/settings` uses an allowlist, so administrator credentials and secrets cannot be
   tampered with through that endpoint
 
-[Unreleased]: https://github.com/lukefownn-prog/AGI_BAR_Local_AI_Gateway/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/lukefownn-prog/AGI_BAR_Local_AI_Gateway/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/lukefownn-prog/AGI_BAR_Local_AI_Gateway/compare/v1.2.0...v2.0.0
 [1.2.0]: https://github.com/lukefownn-prog/AGI_BAR_Local_AI_Gateway/releases/tag/v1.2.0

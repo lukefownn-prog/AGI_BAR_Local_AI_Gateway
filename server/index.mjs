@@ -31,7 +31,7 @@ import { serveStatic } from './routes/static.mjs';
 import { lanAddresses, primaryLanAddress } from './core/net.mjs';
 import { isAdminSurface, isAdminAsset, canAccessAdmin, normalizeIp } from './services/access.mjs';
 
-export const VERSION = '1.2.0';
+export const VERSION = '2.0.0';
 
 /**
  * 本次執行的唯一識別。

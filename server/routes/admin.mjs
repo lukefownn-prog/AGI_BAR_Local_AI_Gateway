@@ -446,7 +446,7 @@ adminRouter.get('/api/settings/export', async (req, res, ctx) => {
 adminRouter.get('/api/health', async (req, res) => {
   json(res, 200, {
     ok: true,
-    version: getSetting('version', '1.2.0'),
+    version: getSetting('version', '2.0.0'),
     uptimeSec: Math.round(process.uptime()),
     queue: queue.snapshot(),
   });

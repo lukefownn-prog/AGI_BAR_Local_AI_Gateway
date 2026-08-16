@@ -7,6 +7,19 @@
 
 ## [Unreleased]
 
+### 待辦
+
+- M11 各客戶端的實機點擊驗證（API 層面已全數通過，Issue #1）
+- M14 對真實 GPU 主機與 LAN 多機的實機驗收（腳本已完成，Issue #2）
+
+---
+
+## [2.0.0] - 2026-08-16
+
+首個公開發佈版本。授權由專有授權改為 MIT。
+
+**破壞性變更：** 移除受控上網（Web Search / URL Fetch）整組功能，包含 `/v1/tools/*` 與 `/api/internet` 端點。既有資料庫不需手動遷移。
+
 ### 新增
 
 **紀錄保留期同時套用到資料庫（`server/services/retention.mjs`）**
@@ -195,11 +208,6 @@ AGI BAR 回歸單純的網關職責：驗證、配額、排隊、路由、紀錄
 管理台看起來就像不存在。這項判定所需的 `ipInCidr` 已從 `services/websafe.mjs`
 搬到 `core/net.mjs`，對應的 CIDR 測試也移入 `tests/net.test.mjs`。
 
-### 待辦
-
-- M11 各客戶端的實機點擊驗證（API 層面已全數通過，Issue #1）
-- M14 對真實 GPU 主機與 LAN 多機的實機驗收（腳本已完成，Issue #2）
-
 ---
 
 ## [1.2.0] - 2026-08-07
@@ -274,5 +282,6 @@ AGI BAR 回歸單純的網關職責：驗證、配額、排隊、路由、紀錄
 - 外部雲端模型需 `requiresExplicitConsent` 明確授權，未授權拒絕送出內容
 - `PATCH /api/settings` 採白名單，無法透過該端點竄改管理員帳密或祕鑰
 
-[Unreleased]: https://github.com/lukefownn-prog/agi-bar/compare/v1.2.0...HEAD
-[1.2.0]: https://github.com/lukefownn-prog/agi-bar/releases/tag/v1.2.0
+[Unreleased]: https://github.com/lukefownn-prog/AGI_BAR_Local_AI_Gateway/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/lukefownn-prog/AGI_BAR_Local_AI_Gateway/compare/v1.2.0...v2.0.0
+[1.2.0]: https://github.com/lukefownn-prog/AGI_BAR_Local_AI_Gateway/releases/tag/v1.2.0

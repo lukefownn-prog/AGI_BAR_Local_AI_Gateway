@@ -7,6 +7,19 @@
 
 ## [Unreleased]
 
+### 未着手
+
+- M11：各クライアントの実機クリック検証（API レベルはすべて通過済み。Issue #1）
+- M14：実機 GPU ホストと LAN 複数台での受け入れ（スクリプトは完成済み。Issue #2）
+
+---
+
+## [2.0.0] - 2026-08-16
+
+初の公開リリースです。ライセンスを専有ライセンスから MIT へ変更しました。
+
+**破壊的変更：** 制御付き Web アクセス（Web Search / URL Fetch）機能一式を削除しました。`/v1/tools/*` と `/api/internet` エンドポイントを含みます。既存データベースの手動移行は不要です。
+
 ### 追加
 
 **ログ保持期間をデータベースの記録にも適用（`server/services/retention.mjs`）**
@@ -221,11 +234,6 @@ Claude Code は Anthropic 形式を使う一方、ローカルモデルはほぼ
 `ipInCidr` は `services/websafe.mjs` から `core/net.mjs` へ移し、対応する CIDR テストも
 `tests/net.test.mjs` へ移動しました。
 
-### 未着手
-
-- M11：各クライアントの実機クリック検証（API レベルはすべて通過済み。Issue #1）
-- M14：実機 GPU ホストと LAN 複数台での受け入れ（スクリプトは完成済み。Issue #2）
-
 ---
 
 ## [1.2.0] - 2026-08-07
@@ -318,5 +326,6 @@ Claude Code は Anthropic 形式を使う一方、ローカルモデルはほぼ
 - `PATCH /api/settings` はホワイトリスト方式のため、当該エンドポイント経由で管理者の
   アカウント情報や秘密鍵を改変することはできない
 
-[Unreleased]: https://github.com/lukefownn-prog/AGI_BAR_Local_AI_Gateway/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/lukefownn-prog/AGI_BAR_Local_AI_Gateway/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/lukefownn-prog/AGI_BAR_Local_AI_Gateway/compare/v1.2.0...v2.0.0
 [1.2.0]: https://github.com/lukefownn-prog/AGI_BAR_Local_AI_Gateway/releases/tag/v1.2.0
