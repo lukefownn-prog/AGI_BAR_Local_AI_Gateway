@@ -157,8 +157,8 @@ npm run compat:self                        # verifies the script itself
 npm run compat -- --url http://<IP>:8787 --key agi-bar-xxxxxxxx
 ```
 
-See **[tests/load/README.md](tests/load/README.md)** and
-**[tests/integration/README.md](tests/integration/README.md)**.
+See **[tests/load/README.en.md](tests/load/README.en.md)** and
+**[tests/integration/README.en.md](tests/integration/README.en.md)**.
 
 Branching rules, the PR process and release steps are in
 **[docs/開發流程.md](docs/開發流程.md)** (Development workflow).

@@ -16,6 +16,7 @@ import { queue } from '../services/queue.mjs';
 import { createBackup, listBackups } from '../services/backup.mjs';
 import { lanUrls as netLanUrls } from '../core/net.mjs';
 import { lastPurgeAt } from '../services/retention.mjs';
+import { VERSION } from '../core/version.mjs';
 
 export const adminRouter = new Router();
 
@@ -446,7 +447,7 @@ adminRouter.get('/api/settings/export', async (req, res, ctx) => {
 adminRouter.get('/api/health', async (req, res) => {
   json(res, 200, {
     ok: true,
-    version: getSetting('version', '2.0.0'),
+    version: getSetting('version', VERSION),
     uptimeSec: Math.round(process.uptime()),
     queue: queue.snapshot(),
   });

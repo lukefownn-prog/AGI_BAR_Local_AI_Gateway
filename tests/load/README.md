@@ -1,5 +1,7 @@
 # M14 壓力測試與驗收
 
+**繁體中文** ｜ [English](README.en.md) ｜ [日本語](README.ja.md)
+
 > 對應規畫書第 14 節「V1 驗收標準」與 [Issue #2](https://github.com/lukefownn-prog/AGI_BAR_Local_AI_Gateway/issues/2)。
 
 ## 兩種模式

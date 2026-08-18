@@ -1,5 +1,7 @@
 # M11 客戶端串接驗證
 
+**繁體中文** ｜ [English](README.en.md) ｜ [日本語](README.ja.md)
+
 > 對應規畫書第 10 節與 [Issue #1](https://github.com/lukefownn-prog/AGI_BAR_Local_AI_Gateway/issues/1)。
 
 ## 這支腳本能做什麼、不能做什麼

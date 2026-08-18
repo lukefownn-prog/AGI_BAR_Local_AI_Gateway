@@ -34,6 +34,7 @@ const REQUIRED_FILES = [
   'server/core/http.mjs',
   'server/core/paths.mjs',
   'server/core/logger.mjs',
+  'server/core/version.mjs',
   'server/services/users.mjs',
   'server/services/apikeys.mjs',
   'server/services/quota.mjs',

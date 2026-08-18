@@ -158,8 +158,8 @@ npm run compat:self                        # スクリプト自体の検証
 npm run compat -- --url http://<IP>:8787 --key agi-bar-xxxxxxxx
 ```
 
-詳細は **[tests/load/README.md](tests/load/README.md)** と
-**[tests/integration/README.md](tests/integration/README.md)** を参照してください。
+詳細は **[tests/load/README.ja.md](tests/load/README.ja.md)** と
+**[tests/integration/README.ja.md](tests/integration/README.ja.md)** を参照してください。
 
 ブランチ運用、PR フロー、リリース手順は
 **[docs/開發流程.md](docs/開發流程.md)**（開発フロー）にあります。

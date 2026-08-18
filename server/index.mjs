@@ -30,8 +30,9 @@ import { anthropicErrorType } from './services/anthropic-compat.mjs';
 import { serveStatic } from './routes/static.mjs';
 import { lanAddresses, primaryLanAddress } from './core/net.mjs';
 import { isAdminSurface, isAdminAsset, canAccessAdmin, normalizeIp } from './services/access.mjs';
+import { VERSION } from './core/version.mjs';
 
-export const VERSION = '2.0.0';
+export { VERSION };
 
 /**
  * 本次執行的唯一識別。
